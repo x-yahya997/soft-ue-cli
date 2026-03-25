@@ -601,55 +601,37 @@ UEdGraphNode* UAddGraphNodeTool::CreateBlueprintNode(
 		}
 	}
 
-	// LinkedAnimLayer: wire up the layer function reference programmatically.
-	// "Layer" and "Interface" pseudo-properties configure FunctionName on
-	// the inner FAnimNode_LinkedAnimLayer, not regular UPROPERTY reflection.
+	// LinkedAnimLayer: set public data members, then ReconstructNode rebuilds
+	// pins and internal state. FunctionReference is protected/MinimalAPI so we
+	// can only set the public fields: Node.Layer, Node.Interface, InterfaceGuid.
 	if (UAnimGraphNode_LinkedAnimLayer* LayerNode = Cast<UAnimGraphNode_LinkedAnimLayer>(NewNode))
 	{
 		if (!LinkedLayerName.IsEmpty())
 		{
-			bool bFound = false;
+			FName LayerFName(*LinkedLayerName);
+
+			// Set Node.Layer
+			LayerNode->Node.Layer = LayerFName;
+
+			// Find Node.Interface and InterfaceGuid from implemented interfaces
 			for (const FBPInterfaceDescription& Iface : Blueprint->ImplementedInterfaces)
 			{
-				if (!LinkedInterfaceName.IsEmpty())
+				for (UEdGraph* IfaceGraph : Iface.Graphs)
 				{
-					FString IfaceName = Iface.Interface ? Iface.Interface->GetName() : TEXT("");
-					IfaceName.RemoveFromEnd(TEXT("_C"));
-					if (!IfaceName.Contains(LinkedInterfaceName))
-					{
-						continue;
-					}
-				}
-
-				for (const UEdGraph* IfaceGraph : Iface.Graphs)
-				{
-					if (IfaceGraph && IfaceGraph->GetFName() == FName(*LinkedLayerName))
+					if (IfaceGraph && IfaceGraph->GetFName() == LayerFName)
 					{
 						LayerNode->Node.Interface = Iface.Interface;
-						LayerNode->Node.Layer = FName(*LinkedLayerName);
-						bFound = true;
+						LayerNode->InterfaceGuid = IfaceGraph->InterfaceGuid;
 						break;
 					}
 				}
-				if (bFound) break;
+				if (LayerNode->Node.Interface.Get()) break;
 			}
 
-			if (!bFound)
-			{
-				FString Msg = FString::Printf(TEXT("Layer function '%s' not found in Blueprint interfaces"), *LinkedLayerName);
-				UE_LOG(LogSoftUEBridgeEditor, Warning, TEXT("%s"), *Msg);
-				if (OutError.IsEmpty())
-				{
-					OutError = Msg;
-				}
-				else
-				{
-					OutError += TEXT("; ") + Msg;
-				}
-			}
+			UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("add-graph-node: Configured LinkedAnimLayer with layer '%s'"), *LinkedLayerName);
 		}
 
-		// Always reconstruct to update pins based on the configured layer
+		// ReconstructNode rebuilds pins from Node.Interface + Node.Layer + InterfaceGuid
 		LayerNode->ReconstructNode();
 	}
 

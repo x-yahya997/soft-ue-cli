@@ -2,6 +2,12 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.6.1] - 2026-03-25
+
+### Fixed
+- `create-asset AnimBlueprint --skeleton` now correctly creates an AnimBlueprint instead of a generic Actor Blueprint (subclass routing order fix)
+- `add-graph-node --properties '{"Layer":"X"}'` on LinkedAnimLayer now sets InterfaceGuid for proper layer function binding and pin reconstruction
+
 ## [1.6.0] - 2026-03-25
 
 ### Added
