@@ -1,4 +1,4 @@
-# soft-ue-cli
+# soft-ue-cli (+mcp)
 
 [![PyPI version](https://img.shields.io/pypi/v/soft-ue-cli.svg)](https://pypi.org/project/soft-ue-cli/)
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/soft-ue-cli.svg)](https://pypi.org/project/soft-ue-cli/)
@@ -6,32 +6,43 @@
 [![Sponsor](https://img.shields.io/github/sponsors/softdaddy-o?label=Sponsor&logo=github)](https://github.com/sponsors/softdaddy-o)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/softdaddy)
 
-**Control Unreal Engine 5 from the command line.** soft-ue-cli is a Python CLI that lets [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's AI coding agent) -- or any terminal workflow -- spawn actors, edit Blueprints, inspect materials, run Play-In-Editor sessions, capture screenshots, profile performance, and execute 50+ other operations inside a running UE5 editor or packaged build.
+Built and maintained by a solo developer. [Support this project](#support-this-project) if it saves you time.
 
-One pip install. One plugin copy. Zero manual editor clicks.
+**Control Unreal Engine 5 from your AI agent or terminal.** soft-ue-cli gives any LLM — via **MCP server** or **CLI** — 60+ tools to spawn actors, edit Blueprints, inspect materials, run Play-In-Editor sessions, capture screenshots, profile performance, and more inside a running UE5 editor or packaged build.
+
+Two ways to connect. Same 60+ tools. One pip install. One plugin copy.
 
 ```
-Claude Code  -->  soft-ue-cli (Python)  -->  HTTP/JSON-RPC  -->  SoftUEBridge plugin (inside UE)
+MCP client (Claude Desktop, Cursor, Windsurf, …)         Claude Code / terminal / CI
+    |                                                          |
+    |  stdio (MCP protocol)                                    |  shell commands
+    v                                                          v
+soft-ue-cli mcp-serve                                    soft-ue-cli <command>
+    \                                                        /
+     '----->  HTTP / JSON-RPC  ----->  SoftUEBridge plugin (inside UE)
 ```
 
 ---
 
 ## Why soft-ue-cli?
 
-- **AI-native UE automation** -- purpose-built so Claude Code can read, modify, and test Unreal Engine projects without a human touching the editor.
-- **50+ commands** covering actors, Blueprints, materials, StateTrees, widgets, assets, PIE sessions, profiling, and more.
+- **MCP server + CLI in one package** -- use as an MCP server (`mcp-serve`) for Claude Desktop, Cursor, Windsurf, and other MCP clients, **or** as a standard CLI for Claude Code, shell scripts, and CI/CD. Same 60+ tools either way.
+- **AI-native UE automation** -- purpose-built so LLM agents can read, modify, and test Unreal Engine projects without a human touching the editor.
+- **60+ tools** covering actors, Blueprints, materials, StateTrees, widgets, assets, PIE sessions, profiling, and more.
+- **LLM skill prompts** -- ships with markdown workflows (e.g. Blueprint-to-C++ conversion) exposed as MCP prompts or CLI commands.
 - **Works everywhere UE runs** -- editor, cooked builds, Windows, macOS, Linux.
-- **Single dependency** -- only requires `httpx`. No heavy SDK, no editor scripting setup.
+- **Single dependency** -- only requires `httpx`. Add `[mcp]` extra for MCP server mode.
 - **Team-friendly** -- conditional compilation via `SOFT_UE_BRIDGE` environment variable means only developers who need the bridge get it compiled in.
 
 ---
 
 ## Quick Start
 
-### 1. Install the CLI
+### 1. Install
 
 ```bash
-pip install soft-ue-cli
+pip install soft-ue-cli          # CLI only
+pip install soft-ue-cli[mcp]     # CLI + MCP server
 ```
 
 ### 2. Install the plugin into your UE project
@@ -65,6 +76,23 @@ You should see all checks pass:
 [OK]   SoftUEBridge enabled in YourGame.uproject.
 [OK]   Bridge server reachable.
 ```
+
+### 5. (Optional) Connect your MCP client
+
+Add to your MCP client config (Claude Desktop, Cursor, Windsurf, etc.):
+
+```json
+{
+  "mcpServers": {
+    "soft-ue-cli": {
+      "command": "soft-ue-cli",
+      "args": ["mcp-serve"]
+    }
+  }
+}
+```
+
+The AI editor now has direct access to all 60+ UE tools and skill prompts — no terminal needed.
 
 ---
 
@@ -108,6 +136,22 @@ LLM generates output (e.g. .h/.cpp files) following the skill's rules
 ```
 
 Skills are **markdown files** at `cli/soft_ue_cli/skills/*.md`, shipped as package data in the pip distribution. Each skill is self-contained: workflow instructions, reference tables, example CLI commands, and verification test cases. The CLI discovers them via `skills list` / `skills get`. When running as an MCP server, the same files are exposed via the `prompts/list` and `prompts/get` protocol.
+
+### MCP Server Architecture
+
+```
+MCP Client (Claude Desktop, Cursor, Windsurf, etc.)
+    |
+    |  stdio (JSON-RPC, MCP protocol)
+    v
+soft-ue-cli mcp-serve  (FastMCP server)
+    |
+    |  Reuses call_tool() — HTTP/JSON-RPC
+    v
+SoftUEBridge plugin (inside UE)
+```
+
+Running `soft-ue-cli mcp-serve` starts an MCP server over stdio. It auto-generates MCP tool schemas from the CLI's argparse parser and forwards tool calls to the UE bridge. Skills are exposed as MCP prompts. Install the optional extra: `pip install soft-ue-cli[mcp]`.
 
 ---
 
@@ -263,6 +307,18 @@ Skills are markdown prompts that teach an LLM client how to perform complex mult
 |-------|-------------|
 | `blueprint-to-cpp` | Generate C++ `.h`/`.cpp` from a Blueprint asset -- Layer 1 (class scaffolding) + Layer 2 (graph logic translation) |
 
+### MCP Server Mode
+
+| Command | Description |
+|---------|-------------|
+| `mcp-serve` | Run as an MCP (Model Context Protocol) server over stdio |
+
+Exposes all 60+ commands as MCP tools and skills as MCP prompts. Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, and other MCP clients. Requires the optional `mcp` extra:
+
+```bash
+pip install soft-ue-cli[mcp]
+```
+
 ---
 
 ## Usage Examples
@@ -371,6 +427,29 @@ soft-ue-cli insights-capture stop
 soft-ue-cli insights-analyze latest --analysis-type cpu
 ```
 
+### Use as an MCP server (Claude Desktop, Cursor, etc.)
+
+```bash
+# Install with MCP support
+pip install soft-ue-cli[mcp]
+
+# Run the MCP server (used in MCP client config, not run manually)
+soft-ue-cli mcp-serve
+```
+
+Add to your MCP client config (e.g. `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "soft-ue-cli": {
+      "command": "soft-ue-cli",
+      "args": ["mcp-serve"]
+    }
+  }
+}
+```
+
 ---
 
 ## Configuration
@@ -417,7 +496,7 @@ Developers who need the bridge set `SOFT_UE_BRIDGE=1` in their environment. Ever
 | **Python** | 3.10+ |
 | **Platforms** | Windows, macOS, Linux |
 | **Build types** | Editor, Development, Shipping (cooked/packaged) |
-| **Dependencies** | `httpx >= 0.27` (sole runtime dependency) |
+| **Dependencies** | `httpx >= 0.27` (sole runtime dependency); optional `mcp >= 1.2` for MCP server mode |
 
 ---
 
@@ -436,13 +515,15 @@ pytest -v
 
 ### What is soft-ue-cli?
 
-soft-ue-cli is a Python command-line tool that controls Unreal Engine 5 from the terminal. It communicates with a C++ plugin (SoftUEBridge) running inside UE via HTTP/JSON-RPC, enabling automation of actor spawning, Blueprint editing, material inspection, Play-In-Editor sessions, screenshot capture, performance profiling, and 50+ other operations.
+soft-ue-cli is a Python tool that gives AI agents and developers 60+ operations to control Unreal Engine 5. It works as an **MCP server** (for Claude Desktop, Cursor, Windsurf, and other MCP clients) or as a **standard CLI** (for Claude Code, shell scripts, CI/CD). It communicates with a C++ plugin (SoftUEBridge) running inside UE via HTTP/JSON-RPC, enabling actor spawning, Blueprint editing, material inspection, Play-In-Editor sessions, screenshot capture, performance profiling, and more.
 
-### How does Claude Code use soft-ue-cli to control Unreal Engine?
+### How do AI agents use soft-ue-cli?
 
-Claude Code runs soft-ue-cli commands in the terminal just like a developer would. By adding a `CLAUDE.md` file to your UE project that describes the available commands, Claude Code can autonomously query your level, spawn actors, edit Blueprints, run PIE sessions, and iterate on your game -- all without manual editor interaction.
+**MCP clients** (Claude Desktop, Cursor, Windsurf): Connect via `soft-ue-cli mcp-serve`. The agent sees all 60+ tools with typed schemas and skill prompts — it can directly call UE operations without going through a terminal.
 
-### Can I use soft-ue-cli without Claude Code?
+**Claude Code**: Runs soft-ue-cli commands in the terminal. Add a `CLAUDE.md` file to your UE project describing available commands, and Claude Code autonomously queries your level, spawns actors, edits Blueprints, runs PIE sessions, and iterates on your game.
+
+### Can I use soft-ue-cli without an AI agent?
 
 Yes. soft-ue-cli is a standard Python CLI. You can use it in shell scripts, CI/CD pipelines, custom automation tools, or any workflow that can invoke command-line programs. Every command outputs structured JSON, making it easy to parse and integrate.
 
@@ -473,6 +554,53 @@ Use `query-blueprint-graph` to inspect existing graph nodes, `add-graph-node` to
 ### What is the difference between soft-ue-cli and Unreal Engine Remote Control?
 
 Unreal Engine's built-in Remote Control API focuses on property access and preset-based workflows. soft-ue-cli provides a broader command set specifically designed for AI coding agents -- including Blueprint graph editing, StateTree manipulation, PIE session control, UE Insights profiling, widget inspection, and asset creation -- with a simpler setup process (one pip install, one plugin copy).
+
+### How do I use soft-ue-cli with Claude Desktop or Cursor?
+
+Run `pip install soft-ue-cli[mcp]` to install MCP support, then add the server to your MCP client config. For Claude Desktop, add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "soft-ue-cli": {
+      "command": "soft-ue-cli",
+      "args": ["mcp-serve"]
+    }
+  }
+}
+```
+
+The MCP server exposes all 60+ commands as MCP tools and skills as MCP prompts. The AI editor can then directly call UE operations without going through the terminal.
+
+### What is the difference between soft-ue-cli and other UE MCP servers?
+
+| | soft-ue-cli | unreal-mcp, ue5-mcp, etc. |
+|---|---|---|
+| **Tools** | 60+ | 10–49 |
+| **Coverage** | Blueprints, materials, StateTrees, widgets, PIE, profiling, DataTables, CVars, Live Coding | Varies; most cover actors + basic assets |
+| **LLM skill prompts** | Yes (MCP prompts + CLI) | No |
+| **CLI mode** | Yes — shell scripts, CI/CD, Claude Code | MCP-only |
+| **Setup** | `pip install soft-ue-cli[mcp]` + copy one plugin | Varies; often requires custom C++/Python scripting |
+
+---
+
+## Support this project
+
+soft-ue-cli is free, open-source, and maintained by one person. If it saves you hours of manual editor work or helps your AI workflow, consider supporting continued development:
+
+- [Sponsor on GitHub](https://github.com/sponsors/softdaddy-o) — recurring or one-time
+- [Buy me a coffee on Ko-fi](https://ko-fi.com/softdaddy) — quick one-time donation
+
+Using soft-ue-cli in your project? [Share your experience](https://github.com/softdaddy-o/soft-ue-cli/discussions) — I'd love to hear about it.
+
+---
+
+## Roadmap
+
+- UE 5.8 support
+- More LLM skills (Material-to-HLSL, Animation Blueprint automation)
+- Visual diff for Blueprint changes
+- CI/CD integration examples
 
 ---
 

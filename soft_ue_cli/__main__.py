@@ -73,6 +73,21 @@ def cmd_spawn_actor(args: argparse.Namespace) -> None:
     _print_json(call_tool("spawn-actor", arguments))
 
 
+def cmd_batch_spawn_actors(args: argparse.Namespace) -> None:
+    arguments: dict = {"actors": _parse_json_arg(args.actors, "--actors")}
+    _print_json(call_tool("batch-spawn-actors", arguments))
+
+
+def cmd_batch_modify_actors(args: argparse.Namespace) -> None:
+    arguments: dict = {"modifications": _parse_json_arg(args.modifications, "--modifications")}
+    _print_json(call_tool("batch-modify-actors", arguments))
+
+
+def cmd_batch_delete_actors(args: argparse.Namespace) -> None:
+    arguments: dict = {"actors": _parse_json_arg(args.actors, "--actors")}
+    _print_json(call_tool("batch-delete-actors", arguments))
+
+
 def cmd_query_level(args: argparse.Namespace) -> None:
     arguments: dict = {"limit": args.limit}
     if args.actor_name:
@@ -1087,6 +1102,19 @@ def cmd_skills(args: argparse.Namespace) -> None:
     print(content)
 
 
+def cmd_mcp_serve(args: argparse.Namespace) -> None:
+    try:
+        from .mcp_server import run_server
+    except ImportError:
+        print(
+            "error: MCP support requires the 'mcp' extra.\n"
+            "Install with: pip install soft-ue-cli[mcp]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    run_server()
+
+
 # -- Argument parser -----------------------------------------------------------
 
 
@@ -1205,6 +1233,54 @@ def build_parser() -> argparse.ArgumentParser:
     p_spawn.add_argument("--label", metavar="NAME", help="Actor label in the World Outliner (editor)")
     p_spawn.add_argument("--world", choices=["editor", "pie"], help="Target world: editor (default) or pie")
     p_spawn.set_defaults(func=cmd_spawn_actor)
+
+    # batch-spawn-actors
+    p_batch_spawn = sub.add_parser(
+        "batch-spawn-actors",
+        help="Batch-spawn multiple actors in a single undo transaction.",
+        description=(
+            "Spawns multiple actors in the editor level within a single undo transaction.\n"
+            "Pass a JSON array of actor entries, each with class, optional mesh, location,\n"
+            "rotation, scale, and label.\n\n"
+            "Example:\n"
+            '  soft-ue-cli batch-spawn-actors --actors \'[{"class":"StaticMeshActor",\n'
+            '    "mesh":"/Game/Meshes/SM_Rock","location":[100,0,0],"label":"Rock_01"}]\''
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_batch_spawn.add_argument("--actors", required=True, help="JSON array of actor entries")
+    p_batch_spawn.set_defaults(func=cmd_batch_spawn_actors)
+
+    # batch-modify-actors
+    p_batch_modify = sub.add_parser(
+        "batch-modify-actors",
+        help="Batch-modify transforms of existing actors in a single undo transaction.",
+        description=(
+            "Modifies location, rotation, and/or scale of multiple actors in a single\n"
+            "undo transaction. Only specified fields are changed.\n\n"
+            "Example:\n"
+            '  soft-ue-cli batch-modify-actors --modifications \'[{"actor":"Rock_01",\n'
+            '    "scale":[2,2,2],"rotation":[0,90,0]}]\''
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_batch_modify.add_argument("--modifications", required=True, help="JSON array of modification entries")
+    p_batch_modify.set_defaults(func=cmd_batch_modify_actors)
+
+    # batch-delete-actors
+    p_batch_delete = sub.add_parser(
+        "batch-delete-actors",
+        help="Batch-delete multiple actors in a single undo transaction.",
+        description=(
+            "Deletes multiple actors from the editor level in a single undo transaction.\n"
+            "Actors are identified by name or label.\n\n"
+            "Example:\n"
+            '  soft-ue-cli batch-delete-actors --actors \'["Rock_01","Tree_03"]\''
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_batch_delete.add_argument("--actors", required=True, help="JSON array of actor names or labels")
+    p_batch_delete.set_defaults(func=cmd_batch_delete_actors)
 
     # query-level
     p_ql = sub.add_parser(
@@ -2490,6 +2566,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_skills_get = skills_sub.add_parser("get", help="Print a skill's full content")
     p_skills_get.add_argument("skill_name", help="Skill name (e.g. blueprint-to-cpp)")
     p_skills.set_defaults(func=cmd_skills)
+
+    # mcp-serve
+    p_mcp = sub.add_parser(
+        "mcp-serve",
+        help="Run as an MCP server over stdio for AI editor integration.",
+        description=(
+            "Starts an MCP (Model Context Protocol) server over stdio transport.\n"
+            "Exposes all soft-ue-cli commands as MCP tools and skills as MCP prompts.\n\n"
+            "Requires the 'mcp' extra: pip install soft-ue-cli[mcp]\n\n"
+            "USAGE IN MCP CLIENT CONFIG:\n"
+            '  {\n'
+            '    "mcpServers": {\n'
+            '      "soft-ue-cli": {\n'
+            '        "command": "soft-ue-cli",\n'
+            '        "args": ["mcp-serve"]\n'
+            '      }\n'
+            '    }\n'
+            '  }'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_mcp.set_defaults(func=cmd_mcp_serve)
 
     return parser
 
