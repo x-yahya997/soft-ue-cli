@@ -196,7 +196,7 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 | Command | Description |
 |---------|-------------|
 | `query-asset` | Search the Content Browser by name, class, or path -- also inspect DataTables |
-| `create-asset` | Create new Blueprint, Material, DataTable, or other asset types |
+| `create-asset` | Create new Blueprint, Material, DataTable, World (Level), or other asset types |
 | `delete-asset` | Delete an asset |
 | `set-asset-property` | Set a property on a Blueprint CDO or component |
 | `get-asset-diff` | Get property-level diff of an asset vs. source control |
@@ -551,7 +551,7 @@ soft-ue-cli submit-testimonial \
   --rating 5
 ```
 
-Posts to [GitHub Discussions](https://github.com/softdaddy-o/soft-ue-cli/discussions) with auto-collected metadata (CLI version, usage streak, top tools). A consent prompt appears before posting unless `--yes` is passed.
+Opens a GitHub Issue (label: `testimonial`) with auto-collected metadata (CLI version, usage streak, top tools). A consent prompt appears before posting unless `--yes` is passed.
 
 All feedback commands require GitHub auth: set `GITHUB_TOKEN` env var or run `gh auth login`.
 
@@ -637,7 +637,7 @@ soft-ue-cli is free, open-source, and maintained by one person. If it saves you 
 - [Sponsor on GitHub](https://github.com/sponsors/softdaddy-o) — recurring or one-time
 - [Buy me a coffee on Ko-fi](https://ko-fi.com/softdaddy) — quick one-time donation
 
-Using soft-ue-cli in your project? [Share your experience](https://github.com/softdaddy-o/soft-ue-cli/discussions) — I'd love to hear about it.
+Using soft-ue-cli in your project? [Share your experience](https://github.com/softdaddy-o/soft-ue-cli/issues/new?labels=testimonial&title=Testimonial) — I'd love to hear about it.
 
 ---
 

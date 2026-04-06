@@ -62,4 +62,5 @@ private:
 	UObject* CreateAnimLayerInterface(const FString& AssetPath, const FString& AssetName, const FString& SkeletonPath, TSharedPtr<FJsonObject>& Result, FString& OutError);
 	UObject* CreateDataAsset(const FString& AssetPath, const FString& AssetName, UClass* DataAssetClass, FString& OutError);
 	UObject* CreateGenericAsset(const FString& AssetPath, const FString& AssetName, UClass* AssetClass, IAssetTools& AssetTools, FString& OutError);
+	UObject* CreateLevelFromTemplate(const FString& PackagePath, const FString& AssetName, const FString& AssetPath, const FString& TemplatePath, FString& OutError);
 };

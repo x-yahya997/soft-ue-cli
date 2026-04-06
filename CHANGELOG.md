@@ -2,6 +2,17 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.13.0] - 2026-04-06
+
+### Fixed
+- `mcp-serve`: `report-bug` (and other client-side tools) crashed with `NameError: name 'io' is not defined` — added missing `import io` to `mcp_server.py`
+- `mcp-serve`: `query-asset` with `asset_class` filter returned 0 results — MCP was forwarding the parameter as `asset_class` but the bridge expects `class`; added per-tool parameter rename mapping
+- `capture-screenshot --mode window` failed via MCP with "No active editor window found" — the editor is never the foreground window when an agent calls via mcp-serve; now uses `IMainFrameModule::GetParentWindow()` with fallback to the active window
+
+### Added
+- `create-asset` now supports `World` asset type — create new levels from the CLI: `soft-ue-cli create-asset /Game/Maps/LV_New World`
+- `create-asset --template PATH` — duplicate an existing level instead of creating a blank one
+
 ## [1.12.0] - 2026-04-06
 
 ### Fixed

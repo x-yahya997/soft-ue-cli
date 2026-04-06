@@ -42,6 +42,7 @@ public class SoftUEBridgeEditor : ModuleRules
 
 			// Level Editing
 			"LevelEditor",
+			"MainFrame",
 			"EditorScriptingUtilities",
 
 			// UI/Widgets

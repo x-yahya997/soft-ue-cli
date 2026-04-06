@@ -10,6 +10,7 @@ can be imported without mcp installed (for testing/introspection).
 from __future__ import annotations
 
 import inspect
+import io
 import json
 import sys
 from typing import Any, Optional
@@ -26,6 +27,12 @@ from .skills import get_skill, list_skills
 _BRIDGE_TOOL_NAME_MAP: dict[str, str] = {
     "class-hierarchy": "get-class-hierarchy",
     "project-info": "get-project-info",
+}
+
+# Per-tool parameter renames: MCP exposes argparse dest names, but some bridge
+# tools expect different key names. Map (tool_name → {mcp_param: bridge_param}).
+_PARAM_RENAMES: dict[str, dict[str, str]] = {
+    "query-asset": {"asset_class": "class"},
 }
 
 _JSON_TYPE_TO_PY: dict[str, type] = {
@@ -73,6 +80,10 @@ def _make_tool_fn(tool_name: str, params: dict | None = None):
     def tool_fn(**kwargs: Any) -> str:
         # Filter out None and False (unset optional / store_true args)
         arguments = {k: v for k, v in kwargs.items() if v is not None and v is not False}
+        # Apply any per-tool parameter renames
+        for mcp_name, bridge_name_param in _PARAM_RENAMES.get(tool_name, {}).items():
+            if mcp_name in arguments:
+                arguments[bridge_name_param] = arguments.pop(mcp_name)
 
         try:
             result = _client.call_tool(bridge_name, arguments)

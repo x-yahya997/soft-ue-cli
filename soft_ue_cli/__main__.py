@@ -927,6 +927,8 @@ def cmd_create_asset(args: argparse.Namespace) -> None:
         arguments["skeleton"] = args.skeleton
     if args.row_struct:
         arguments["row_struct"] = args.row_struct
+    if args.template:
+        arguments["template_path"] = args.template
     _print_json(_run_tool("create-asset", arguments))
 
 
@@ -2446,15 +2448,18 @@ def build_parser() -> argparse.ArgumentParser:
             "  soft-ue-cli create-asset /Game/Blueprints/BP_NewActor Blueprint --parent-class Actor\n"
             "  soft-ue-cli create-asset /Game/Materials/M_NewMat Material\n"
             "  soft-ue-cli create-asset /Game/Data/DT_Items DataTable --row-struct /Game/Structs/S_Item\n"
-            "  soft-ue-cli create-asset /Game/Anim/ABP_Hero AnimBlueprint --skeleton /Game/Characters/SK_Mannequin"
+            "  soft-ue-cli create-asset /Game/Anim/ABP_Hero AnimBlueprint --skeleton /Game/Characters/SK_Mannequin\n"
+            "  soft-ue-cli create-asset /Game/Maps/LV_NewLevel World\n"
+            "  soft-ue-cli create-asset /Game/Maps/LV_Copy World --template /Game/Maps/LV_Template"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_cas.add_argument("asset_path", help="Full asset path including name (e.g. /Game/Blueprints/BP_NewActor)")
-    p_cas.add_argument("asset_class", help="Asset class (e.g. Blueprint, Material, DataTable, WidgetBlueprint)")
+    p_cas.add_argument("asset_class", help="Asset class (e.g. Blueprint, Material, DataTable, WidgetBlueprint, World)")
     p_cas.add_argument("--parent-class", metavar="CLASS", help="Parent class for Blueprints (e.g. Actor, Character)")
     p_cas.add_argument("--skeleton", metavar="PATH", help="Skeleton asset path for AnimBlueprint (e.g. /Game/Characters/SK_Mannequin)")
     p_cas.add_argument("--row-struct", metavar="PATH", help="Row struct path for DataTables")
+    p_cas.add_argument("--template", metavar="PATH", help="Template level path for World assets (e.g. /Game/Maps/LV_Template)")
     p_cas.set_defaults(func=cmd_create_asset)
 
     p_sa = sub.add_parser(
