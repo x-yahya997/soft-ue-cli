@@ -1613,18 +1613,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_qm = sub.add_parser(
         "query-material",
-        help="Inspect a Material or MaterialInstance asset.",
+        help="Inspect a Material, MaterialInstance, or MaterialFunction asset.",
         description=(
             "Returns the material graph nodes and/or scalar/vector/texture parameters.\n"
-            "Works on both Material and MaterialInstance assets.\n\n"
+            "Works on Material, MaterialInstance, and MaterialFunction assets.\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli query-material /Game/Materials/M_Rock\n"
             "  soft-ue-cli query-material /Game/Materials/MI_Rock --include parameters\n"
-            '  soft-ue-cli query-material /Game/Materials/M_Rock --parameter-filter "*Color*"'
+            '  soft-ue-cli query-material /Game/Materials/M_Rock --parameter-filter "*Color*"\n'
+            "  soft-ue-cli query-material /Game/Functions/MF_DistanceFade --include graph"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_qm.add_argument("asset_path", help="Material or MaterialInstance asset path")
+    p_qm.add_argument("asset_path", help="Material, MaterialInstance, or MaterialFunction asset path")
     p_qm.add_argument("--include", metavar="SECTION", help="What to include: graph, parameters, all (default: all)")
     p_qm.add_argument("--include-positions", action="store_true", help="Include expression X/Y positions")
     p_qm.add_argument("--no-defaults", action="store_true", help="Exclude default parameter values")

@@ -148,7 +148,7 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 
 | Command | Description |
 |---------|-------------|
-| `query-material` | Inspect Material or Material Instance -- parameters, nodes, connections, `--parent-chain` |
+| `query-material` | Inspect Material, Material Instance, or Material Function -- parameters, nodes, connections, `--parent-chain` |
 | `query-mpc` | Read or write Material Parameter Collection scalar/vector values |
 
 ### Class and Type Inspection

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from unittest.mock import patch
 
 import pytest
@@ -711,6 +710,16 @@ def test_parser_query_material_parent_chain_flag():
     args = parser.parse_args(["query-material", "/Game/Materials/MI_Rock", "--parent-chain"])
     assert args.asset_path == "/Game/Materials/MI_Rock"
     assert args.parent_chain is True
+
+
+# -- query-material MaterialFunction support (issue #39) ----------------------
+
+
+def test_parser_query_material_function_path():
+    parser = build_parser()
+    args = parser.parse_args(["query-material", "/Game/Functions/MF_DistanceFade", "--include", "graph"])
+    assert args.asset_path == "/Game/Functions/MF_DistanceFade"
+    assert args.include == "graph"
 
 
 # -- query-level --include-foliage / --include-grass (issue #34) --------------

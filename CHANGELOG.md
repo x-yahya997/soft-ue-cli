@@ -2,6 +2,11 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.6.2] - 2026-03-29
+
+### Added
+- `query-material` now supports MaterialFunction assets — inspect expression graphs inside material functions
+
 ## [1.6.1] - 2026-03-25
 
 ### Fixed

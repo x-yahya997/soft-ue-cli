@@ -11,12 +11,13 @@
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
+#include "Materials/MaterialFunction.h"
 #include "Tools/BridgeToolResult.h"
 #include "SoftUEBridgeEditorModule.h"
 
 FString UQueryMaterialTool::GetToolDescription() const
 {
-	return TEXT("Query Material structure: expression graph and parameters. "
+	return TEXT("Query Material, MaterialInstance, or MaterialFunction structure: expression graph and parameters. "
 		"Use 'include' to select 'graph', 'parameters', or 'all' (default).");
 }
 
@@ -26,7 +27,7 @@ TMap<FString, FBridgeSchemaProperty> UQueryMaterialTool::GetInputSchema() const
 
 	FBridgeSchemaProperty AssetPath;
 	AssetPath.Type = TEXT("string");
-	AssetPath.Description = TEXT("Asset path to the Material or MaterialInstance");
+	AssetPath.Description = TEXT("Asset path to the Material, MaterialInstance, or MaterialFunction");
 	AssetPath.bRequired = true;
 	Schema.Add(TEXT("asset_path"), AssetPath);
 
@@ -124,7 +125,44 @@ FBridgeToolResult UQueryMaterialTool::Execute(
 	UMaterial* Material = LoadObject<UMaterial>(nullptr, *AssetPath);
 	if (!Material)
 	{
-		return FBridgeToolResult::Error(FString::Printf(TEXT("Failed to load Material: %s"), *AssetPath));
+		// Try MaterialFunction
+		UMaterialFunction* MatFunc = LoadObject<UMaterialFunction>(nullptr, *AssetPath);
+		if (MatFunc)
+		{
+			Result->SetStringField(TEXT("asset_type"), TEXT("MaterialFunction"));
+			if (!MatFunc->Description.IsEmpty())
+			{
+				Result->SetStringField(TEXT("description"), MatFunc->Description);
+			}
+
+			if (bIncludeGraph)
+			{
+				TSharedPtr<FJsonObject> GraphJson = MakeShareable(new FJsonObject);
+				TArray<TSharedPtr<FJsonValue>> ExpressionsArray;
+				for (UMaterialExpression* Expression : MatFunc->GetExpressions())
+				{
+					if (!Expression) continue;
+					TSharedPtr<FJsonObject> ExprJson = ExpressionToJson(Expression, bIncludePositions);
+					if (ExprJson.IsValid())
+					{
+						ExpressionsArray.Add(MakeShareable(new FJsonValueObject(ExprJson)));
+					}
+				}
+				GraphJson->SetArrayField(TEXT("expressions"), ExpressionsArray);
+				GraphJson->SetNumberField(TEXT("expression_count"), ExpressionsArray.Num());
+				Result->SetObjectField(TEXT("graph"), GraphJson);
+			}
+
+			if (bIncludeParams)
+			{
+				Result->SetStringField(TEXT("parameters_note"),
+					TEXT("MaterialFunctions do not expose parameters directly. Parameter expressions are visible as nodes in the graph."));
+			}
+
+			return FBridgeToolResult::Json(Result);
+		}
+
+		return FBridgeToolResult::Error(FString::Printf(TEXT("Failed to load Material or MaterialFunction: %s"), *AssetPath));
 	}
 
 	Result->SetStringField(TEXT("asset_type"), TEXT("Material"));
