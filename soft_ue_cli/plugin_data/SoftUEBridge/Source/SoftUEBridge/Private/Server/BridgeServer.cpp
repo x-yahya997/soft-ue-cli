@@ -10,6 +10,18 @@
 #include "SocketSubsystem.h"
 #include "Sockets.h"
 
+namespace
+{
+	/** RAII guard that sets GIsRunningUnattendedScript for the current scope
+	 *  and restores the previous value on destruction (including exceptions). */
+	struct FUnattendedScriptGuard
+	{
+		bool bPrevious;
+		FUnattendedScriptGuard()  : bPrevious(GIsRunningUnattendedScript) { GIsRunningUnattendedScript = true; }
+		~FUnattendedScriptGuard() { GIsRunningUnattendedScript = bPrevious; }
+	};
+}
+
 FBridgeServer::FBridgeServer() = default;
 
 FBridgeServer::~FBridgeServer()
@@ -284,6 +296,13 @@ FBridgeResponse FBridgeServer::HandleToolsCall(const FBridgeRequest& Request)
 
 	FBridgeToolContext Context;
 	Context.RequestId = Request.Id;
+
+	// Suppress modal dialogs during tool execution.  UE checks this flag in
+	// dialog code paths and auto-selects the default response instead of
+	// showing blocking UI.  Without this, modal dialogs (e.g. "Overwrite
+	// Existing Object") freeze the game thread and cause the bridge to
+	// timeout/hang.  RAII guard ensures restore even if ExecuteTool throws.
+	FUnattendedScriptGuard UnattendedGuard;
 
 	FBridgeToolResult ToolResult = FBridgeToolRegistry::Get().ExecuteTool(ToolName, Arguments, Context);
 	return FBridgeResponse::Success(Request.Id, ToolResult.ToJson());

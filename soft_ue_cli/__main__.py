@@ -1990,16 +1990,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_agn = sub.add_parser(
         "add-graph-node",
-        help="Add a node to a Blueprint event graph or Material graph.",
+        help="Add a node to a Blueprint event graph, Material graph, or AnimLayerInterface.",
         description=(
             "EXAMPLES:\n"
             "  soft-ue-cli add-graph-node /Game/BP_Player K2Node_CallFunction\n"
-            "  soft-ue-cli add-graph-node /Game/M_Rock MaterialExpressionAdd --position 100,200"
+            "  soft-ue-cli add-graph-node /Game/M_Rock MaterialExpressionAdd --position 100,200\n"
+            "\n"
+            "ANIM LAYER FUNCTIONS:\n"
+            "  To add an anim layer function to an AnimLayerInterface, use\n"
+            "  node_class 'AnimLayerFunction' with --graph-name:\n"
+            "\n"
+            "  soft-ue-cli add-graph-node /Game/Animation/ALI_MyInterface AnimLayerFunction \\\n"
+            "      --graph-name SecondaryMotion\n"
+            "\n"
+            "  This creates an AnimationGraph with Root (output pose) and\n"
+            "  LinkedInputPose (input pose) nodes wired as a passthrough."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_agn.add_argument("asset_path", help="Blueprint or Material asset path")
-    p_agn.add_argument("node_class", help="Node class (e.g. K2Node_CallFunction, MaterialExpressionAdd)")
+    p_agn.add_argument("asset_path", help="Blueprint, Material, or AnimLayerInterface asset path")
+    p_agn.add_argument("node_class", help="Node class (e.g. K2Node_CallFunction, MaterialExpressionAdd, AnimLayerFunction)")
     p_agn.add_argument("--graph-name", metavar="NAME", help="Graph name for Blueprints (default: EventGraph)")
     p_agn.add_argument("--position", metavar="X,Y", help="Node position as X,Y")
     p_agn.add_argument("--no-auto-position", action="store_true", help="Disable automatic positioning")
@@ -2116,14 +2126,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_k = sub.add_parser(
         "query-ue-knowledge",
-        help="Query the knowledge server for UE API docs, tutorials, and workflow skills.",
+        help="Query UE knowledge base (coming soon).",
         description="Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_k.add_argument("query", nargs="?", default=None, help="Natural language question about UE API or behavior")
-    p_k.add_argument("--max-results", type=int, default=5, metavar="N", help="Max results to return (default: 5)")
-    p_k.add_argument("--type", choices=["skill"], metavar="TYPE", help="Filter by type: 'skill' for workflow skills")
-    p_k.add_argument("--list-skills", action="store_true", help="List all available workflow skills")
     p_k.set_defaults(func=cmd_knowledge)
 
     # -------------------------------------------------------------------------

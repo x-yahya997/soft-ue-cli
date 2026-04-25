@@ -44,7 +44,9 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     except httpx.TimeoutException:
         print(
             f"error: request timed out after {timeout:.0f}s\n"
-            "For slow operations (e.g. build-and-relaunch), use --timeout <seconds>.",
+            "Possible causes:\n"
+            "  - A modal dialog may be blocking the UE editor (check for popups)\n"
+            "  - The operation is slow (set SOFT_UE_BRIDGE_TIMEOUT=<seconds>)",
             file=sys.stderr,
         )
         sys.exit(1)

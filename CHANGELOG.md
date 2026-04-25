@@ -2,6 +2,15 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.3.1] - 2026-03-23
+
+### Fixed
+- Plugin now auto-dismisses blocking UE editor dialogs during bridge tool execution, preventing game thread hangs and timeouts
+- CLI timeout error message now hints at modal dialogs as a possible cause
+
+### Improved
+- `add-graph-node` help text documents `AnimLayerFunction` usage for creating anim layer functions on AnimLayerInterface assets
+
 ## [1.3.0] - 2026-03-22
 
 ### Changed
