@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "soft-ue-cli"
-version = "1.6.0"
+version = "1.6.1"
 description = "CLI tool for controlling Unreal Engine via soft-ue-bridge plugin"
 requires-python = ">=3.10"
 dependencies = [
@@ -14,11 +14,11 @@ dependencies = [
 [project.scripts]
 soft-ue-cli = "soft_ue_cli.__main__:main"
 
-[tool.hatch.build]
-include = ["soft_ue_cli/**"]
-
 [tool.hatch.build.targets.wheel]
 packages = ["soft_ue_cli"]
+
+[tool.hatch.build]
+include = ["soft_ue_cli/**"]
 
 [project.urls]
 Homepage = "https://github.com/softdaddy-o/soft-ue-cli"

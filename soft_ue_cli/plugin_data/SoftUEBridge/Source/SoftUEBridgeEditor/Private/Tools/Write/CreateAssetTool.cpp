@@ -194,22 +194,22 @@ UObject* UCreateAssetTool::CreateAssetOfClass(
 	TSharedPtr<FJsonObject>& Result,
 	FString& OutError)
 {
-	// Blueprint
-	if (AssetClass->IsChildOf<UBlueprint>() || AssetClass == UBlueprint::StaticClass())
-	{
-		return CreateBlueprint(PackagePath, AssetName, ParentClass, AssetTools, Result, OutError);
-	}
-
-	// AnimBlueprint
+	// AnimBlueprint (check before Blueprint — UAnimBlueprint is a UBlueprint subclass)
 	if (AssetClass->IsChildOf<UAnimBlueprint>() || AssetClass == UAnimBlueprint::StaticClass())
 	{
 		return CreateAnimBlueprint(AssetPath, AssetName, ParentClass, Result, OutError);
 	}
 
-	// WidgetBlueprint
+	// WidgetBlueprint (check before Blueprint — UWidgetBlueprint is a UBlueprint subclass)
 	if (AssetClass->IsChildOf<UWidgetBlueprint>() || AssetClass == UWidgetBlueprint::StaticClass())
 	{
 		return CreateWidgetBlueprint(PackagePath, AssetName, AssetTools, Result, OutError);
+	}
+
+	// Blueprint (generic — after subclass checks)
+	if (AssetClass->IsChildOf<UBlueprint>() || AssetClass == UBlueprint::StaticClass())
+	{
+		return CreateBlueprint(PackagePath, AssetName, ParentClass, AssetTools, Result, OutError);
 	}
 
 	// Material
