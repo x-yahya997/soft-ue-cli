@@ -6,6 +6,7 @@
 #include "Engine/Blueprint.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
+#include "AssetRegistry/IAssetRegistry.h"
 
 FString UModifyInterfaceTool::GetToolDescription() const
 {
@@ -82,12 +83,12 @@ UClass* UModifyInterfaceTool::ResolveInterfaceClass(const FString& InterfaceClas
 	// Try loading by guessing the package path via asset registry
 	if (!InterfaceClass && !InterfaceClassStr.StartsWith(TEXT("/")))
 	{
-		FAssetRegistryModule& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		IAssetRegistry& AssetRegistry = IAssetRegistry::GetChecked();
 		TArray<FAssetData> Assets;
 		FString BaseName = InterfaceClassStr;
 		BaseName.RemoveFromEnd(TEXT("_C"));
 
-		AssetRegistry.Get().GetAssetsByClass(FTopLevelAssetPath(TEXT("/Script/Engine"), TEXT("Blueprint")), Assets);
+		AssetRegistry.GetAssetsByClass(FTopLevelAssetPath(TEXT("/Script/Engine"), TEXT("Blueprint")), Assets);
 		for (const FAssetData& Asset : Assets)
 		{
 			if (Asset.AssetName.ToString() == BaseName)

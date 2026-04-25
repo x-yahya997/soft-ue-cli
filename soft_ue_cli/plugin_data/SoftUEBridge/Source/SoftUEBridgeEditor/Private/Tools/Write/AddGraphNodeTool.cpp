@@ -198,7 +198,7 @@ FBridgeToolResult UAddGraphNodeTool::Execute(
 		}
 
 		// Add to function graphs
-		FBlueprintEditorUtils::AddFunctionGraph(Blueprint, NewGraph, /*bIsUserCreated=*/true, nullptr);
+		FBlueprintEditorUtils::AddFunctionGraph(Blueprint, NewGraph, /*bIsUserCreated=*/true, static_cast<UFunction*>(nullptr));
 
 		// Create the Root node (output pose)
 		FGraphNodeCreator<UAnimGraphNode_Root> RootCreator(*NewGraph);

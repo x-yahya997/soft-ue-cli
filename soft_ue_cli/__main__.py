@@ -1952,10 +1952,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_k = sub.add_parser(
         "query-ue-knowledge",
-        help="Query UE knowledge base (coming soon).",
+        help="Query the knowledge server for UE API docs, tutorials, and workflow skills.",
         description="Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p_k.add_argument("query", nargs="?", default=None, help="Natural language question about UE API or behavior")
+    p_k.add_argument("--max-results", type=int, default=5, metavar="N", help="Max results to return (default: 5)")
+    p_k.add_argument("--type", choices=["skill"], metavar="TYPE", help="Filter by type: 'skill' for workflow skills")
+    p_k.add_argument("--list-skills", action="store_true", help="List all available workflow skills")
     p_k.set_defaults(func=cmd_knowledge)
 
     # -------------------------------------------------------------------------
