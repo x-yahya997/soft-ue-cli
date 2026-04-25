@@ -75,6 +75,9 @@
 #include "Tools/Write/CompileBlueprintTool.h"
 #include "Tools/Write/InsertGraphNodeTool.h"
 #include "Tools/Write/SetNodePropertyTool.h"
+#include "Tools/Write/BatchSpawnActorTool.h"
+#include "Tools/Write/BatchModifyActorTool.h"
+#include "Tools/Write/BatchDeleteActorTool.h"
 
 DEFINE_LOG_CATEGORY(LogSoftUEBridgeEditor);
 
@@ -155,6 +158,9 @@ void FSoftUEBridgeEditorModule::StartupModule()
 	Registry.RegisterToolClass<UCompileBlueprintTool>();
 	Registry.RegisterToolClass<UInsertGraphNodeTool>();
 	Registry.RegisterToolClass<USetNodePropertyTool>();
+	Registry.RegisterToolClass<UBatchSpawnActorTool>();
+	Registry.RegisterToolClass<UBatchModifyActorTool>();
+	Registry.RegisterToolClass<UBatchDeleteActorTool>();
 
 	UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("Registered %d editor bridge tools"), Registry.GetToolCount());
 

@@ -2,6 +2,13 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.9.0] - 2026-04-03
+
+### Added
+- `mcp-serve` command — run soft-ue-cli as an MCP server over stdio, exposing 60+ commands as MCP tools and skills as MCP prompts
+- Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, and other MCP clients
+- Install with: `pip install soft-ue-cli[mcp]`
+
 ## [1.8.0] - 2026-04-03
 
 ### Added
