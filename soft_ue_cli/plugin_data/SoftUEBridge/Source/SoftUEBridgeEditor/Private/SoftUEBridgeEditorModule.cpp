@@ -78,6 +78,7 @@
 #include "Tools/Write/BatchSpawnActorTool.h"
 #include "Tools/Write/BatchModifyActorTool.h"
 #include "Tools/Write/BatchDeleteActorTool.h"
+#include "Tools/Write/SetViewportCameraTool.h"
 
 DEFINE_LOG_CATEGORY(LogSoftUEBridgeEditor);
 
@@ -161,6 +162,7 @@ void FSoftUEBridgeEditorModule::StartupModule()
 	Registry.RegisterToolClass<UBatchSpawnActorTool>();
 	Registry.RegisterToolClass<UBatchModifyActorTool>();
 	Registry.RegisterToolClass<UBatchDeleteActorTool>();
+	Registry.RegisterToolClass<USetViewportCameraTool>();
 
 	UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("Registered %d editor bridge tools"), Registry.GetToolCount());
 

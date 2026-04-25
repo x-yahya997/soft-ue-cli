@@ -107,6 +107,19 @@ def cmd_spawn_actor(args: argparse.Namespace) -> None:
     _print_json(_run_tool("spawn-actor", arguments))
 
 
+def cmd_set_viewport_camera(args: argparse.Namespace) -> None:
+    arguments: dict = {}
+    if args.preset:
+        arguments["preset"] = args.preset
+    if args.location:
+        arguments["location"] = _parse_vector(args.location)
+    if args.rotation:
+        arguments["rotation"] = _parse_vector(args.rotation)
+    if args.ortho_width is not None:
+        arguments["ortho_width"] = args.ortho_width
+    _print_json(_run_tool("set-viewport-camera", arguments))
+
+
 def cmd_batch_spawn_actors(args: argparse.Namespace) -> None:
     arguments: dict = {"actors": _parse_json_arg(args.actors, "--actors")}
     _print_json(_run_tool("batch-spawn-actors", arguments))
@@ -1272,6 +1285,30 @@ def build_parser() -> argparse.ArgumentParser:
     p_spawn.add_argument("--label", metavar="NAME", help="Actor label in the World Outliner (editor)")
     p_spawn.add_argument("--world", choices=["editor", "pie"], help="Target world: editor (default) or pie")
     p_spawn.set_defaults(func=cmd_spawn_actor)
+
+    # set-viewport-camera
+    p_vpcam = sub.add_parser(
+        "set-viewport-camera",
+        help="Set the editor viewport camera position, rotation, or view preset.",
+        description=(
+            "Set the editor viewport camera. Use presets for quick views or\n"
+            "specify location/rotation manually.\n\n"
+            "Presets: top, bottom, front, back, left, right, perspective\n\n"
+            "Examples:\n"
+            "  soft-ue-cli set-viewport-camera --preset top\n"
+            "  soft-ue-cli set-viewport-camera --preset top --ortho-width 10000\n"
+            "  soft-ue-cli set-viewport-camera --location 0,0,2000 --rotation -90,0,0\n"
+            "  soft-ue-cli set-viewport-camera --preset perspective --location 500,500,500"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_vpcam.add_argument("--preset", choices=["top", "bottom", "front", "back", "left", "right", "perspective"],
+                         help="Camera preset view")
+    p_vpcam.add_argument("--location", metavar="X,Y,Z", help="Camera position in cm")
+    p_vpcam.add_argument("--rotation", metavar="P,Y,R", help="Camera rotation in degrees")
+    p_vpcam.add_argument("--ortho-width", type=float, dest="ortho_width",
+                         help="Orthographic view width (zoom). Larger = more zoomed out")
+    p_vpcam.set_defaults(func=cmd_set_viewport_camera)
 
     # batch-spawn-actors
     p_batch_spawn = sub.add_parser(

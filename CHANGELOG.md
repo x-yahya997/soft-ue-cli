@@ -2,6 +2,16 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.11.0] - 2026-04-05
+
+### Added
+- `set-viewport-camera` command — programmatically control the editor viewport camera with presets (top, bottom, front, back, left, right, perspective), custom location/rotation, and orthographic zoom
+- `level-from-image` skill — populate a UE level from a reference image using existing project assets, with autonomous visual feedback loop and human-in-the-loop refinement
+- Batch actor tool reference section in level-from-image skill documentation
+
+### Fixed
+- Skills frontmatter parser now skips nested YAML lines, correctly displaying skill descriptions
+
 ## [1.10.0] - 2026-04-05
 
 ### Added

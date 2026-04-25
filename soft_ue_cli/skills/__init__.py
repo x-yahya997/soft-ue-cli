@@ -16,6 +16,8 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
         return {}
     fields: dict[str, str] = {}
     for line in text[3:end].strip().splitlines():
+        if line.startswith((" ", "\t", "-")):
+            continue
         if ":" in line:
             key, _, value = line.partition(":")
             fields[key.strip()] = value.strip()

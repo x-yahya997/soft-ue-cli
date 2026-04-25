@@ -229,6 +229,7 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 | Command | Description |
 |---------|-------------|
 | `capture-screenshot` | Capture the editor viewport, PIE window, or a specific editor panel |
+| `set-viewport-camera` | Set editor viewport camera position, rotation, or preset view (top/front/right/perspective) |
 
 ### Logging and Console Variables
 
@@ -410,6 +411,18 @@ soft-ue-cli skills get blueprint-to-cpp
 #   soft-ue-cli query-blueprint /Game/BP_Player --include all --include-inherited
 #   soft-ue-cli query-blueprint-graph /Game/BP_Player --list-callables
 # ...and generates the .h/.cpp files from the JSON responses
+```
+
+### Populate a level from a reference image
+
+```bash
+# Get the level-from-image skill instructions
+soft-ue-cli skills get level-from-image
+# The LLM analyzes the image, searches for matching assets, places them,
+# then enters a visual feedback loop:
+#   soft-ue-cli set-viewport-camera --preset top --ortho-width 8000
+#   soft-ue-cli capture-screenshot window --output file
+# Compares screenshot to reference, auto-corrects, then asks for human feedback
 ```
 
 ### Profile with UE Insights
