@@ -1,22 +1,27 @@
-﻿"""Tests for cli/soft_ue_cli/__main__.py ??argument parsing and cmd_setup output."""
+"""Tests for cli/soft_ue_cli/__main__.py — argument parsing and cmd_setup output."""
 
 from __future__ import annotations
 
 import json
+import sys
 from unittest.mock import patch
 
 import pytest
 
+
 from soft_ue_cli.__main__ import (
     _SCRIPTS_DIR,
     _claude_md_section,
+    _parse_int_list,
     _parse_vector,
     _validate_script_name,
     build_parser,
+    cmd_add_graph_node,
     cmd_capture_screenshot,
     cmd_capture_viewport,
     cmd_delete_script,
     cmd_list_scripts,
+    cmd_query_mpc,
     cmd_run_python_script,
     cmd_save_script,
     cmd_setup,
@@ -46,6 +51,16 @@ def test_parse_vector_invalid_exits():
 
 def test_parse_vector_single_value():
     assert _parse_vector("42") == [42.0]
+
+
+def test_parse_int_list_valid():
+    assert _parse_int_list("0,100,200") == [0, 100, 200]
+
+
+def test_parse_int_list_invalid_exits():
+    with pytest.raises(SystemExit) as exc:
+        _parse_int_list("a,b,c")
+    assert exc.value.code == 1
 
 
 # -- _claude_md_section --------------------------------------------------------
@@ -504,6 +519,14 @@ def test_cmd_capture_screenshot_all_options():
     )
 
 
+def test_cmd_capture_screenshot_invalid_region_exits():
+    parser = build_parser()
+    args = parser.parse_args(["capture-screenshot", "region", "--region", "a,b,c,d"])
+    with pytest.raises(SystemExit) as exc:
+        cmd_capture_screenshot(args)
+    assert exc.value.code == 1
+
+
 # -- capture-viewport parser & cmd ---------------------------------------------
 
 
@@ -679,6 +702,20 @@ def test_parser_query_mpc_invalid_world_exits():
         parser.parse_args(["query-mpc", "/Game/Materials/MPC_Wind", "--world", "server"])
 
 
+def test_cmd_query_mpc_invalid_scalar_value_exits():
+    parser = build_parser()
+    args = parser.parse_args([
+        "query-mpc",
+        "/Game/Materials/MPC_Wind",
+        "--action", "write",
+        "--parameter-name", "WindIntensity",
+        "--value", "abc",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        cmd_query_mpc(args)
+    assert exc.value.code == 1
+
+
 # -- save-asset --checkout (issue #30) ----------------------------------------
 
 
@@ -786,10 +823,22 @@ def test_fix_msys_path_mangling():
     # Mangled by Git Bash
     assert _fix_msys_asset_path("C:/Program Files/Git/Game/Materials/M_Rock") == "/Game/Materials/M_Rock"
     assert _fix_msys_asset_path("C:/Program Files/Git/Engine/Content/Foo") == "/Engine/Content/Foo"
-    # Already correct ??pass through
+    # Already correct — pass through
     assert _fix_msys_asset_path("/Game/Materials/M_Rock") == "/Game/Materials/M_Rock"
-    # No mount point ??pass through
+    # No mount point — pass through
     assert _fix_msys_asset_path("some/local/path") == "some/local/path"
     # Empty/None
     assert _fix_msys_asset_path("") == ""
 
+
+def test_cmd_add_graph_node_invalid_position_exits():
+    parser = build_parser()
+    args = parser.parse_args([
+        "add-graph-node",
+        "/Game/BP_Player",
+        "K2Node_CallFunction",
+        "--position", "x,y",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        cmd_add_graph_node(args)
+    assert exc.value.code == 1

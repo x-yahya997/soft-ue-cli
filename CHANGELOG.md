@@ -1,6 +1,12 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to soft-ue-cli will be documented in this file.
+
+## [1.18.0] - 2026-04-08
+
+### Fixed
+- CLI argument validation: `capture-screenshot --region` and `add-graph-node --position` now fail with a clear comma-separated-integer error instead of surfacing a raw Python `ValueError`
+- CLI argument validation: `query-mpc --value` now reports a friendly numeric/JSON parsing error for malformed scalar input instead of crashing with a raw `ValueError`
 
 ## [1.17.0] - 2026-04-08
 

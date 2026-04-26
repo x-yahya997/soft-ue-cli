@@ -1,11 +1,11 @@
-﻿"""Tests for cli/soft_ue_cli/skills ??skill discovery and retrieval."""
+"""Tests for cli/soft_ue_cli/skills — skill discovery and retrieval."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-
 import pytest
+
 
 from soft_ue_cli.skills import get_skill, list_skills
 from soft_ue_cli.__main__ import build_parser, cmd_skills
@@ -122,5 +122,3 @@ def test_cmd_skills_get_nonexistent_exits():
     with pytest.raises(SystemExit) as exc:
         cmd_skills(args)
     assert exc.value.code == 1
-
-

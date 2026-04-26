@@ -78,6 +78,15 @@ def _parse_vector(csv: str) -> list[float]:
         sys.exit(1)
 
 
+def _parse_int_list(csv: str) -> list[int]:
+    """Parse a comma-separated string like '0,0,1920,1080' into a list of ints."""
+    try:
+        return [int(x) for x in csv.split(",")]
+    except ValueError:
+        print(f"error: expected comma-separated integers, got '{csv}'", file=sys.stderr)
+        sys.exit(1)
+
+
 def _parse_json_arg(value: str, flag: str) -> object:
     """Parse a JSON string, printing an error and exiting on failure."""
     try:
@@ -468,7 +477,7 @@ def cmd_capture_screenshot(args: argparse.Namespace) -> None:
     if args.window_name:
         arguments["window_name"] = args.window_name
     if args.region:
-        arguments["region"] = [int(x) for x in args.region.split(",")]
+        arguments["region"] = _parse_int_list(args.region)
     if args.format:
         arguments["format"] = args.format
     if args.output:
@@ -513,7 +522,11 @@ def cmd_query_mpc(args: argparse.Namespace) -> None:
         if val.startswith("["):
             arguments["value"] = _parse_json_arg(val, "--value")
         else:
-            arguments["value"] = float(val)
+            try:
+                arguments["value"] = float(val)
+            except ValueError:
+                print(f"error: expected a number or JSON array, got '{val}'", file=sys.stderr)
+                sys.exit(1)
     if args.world:
         arguments["world"] = args.world
     _print_json(_run_tool("query-mpc", arguments))
@@ -845,7 +858,7 @@ def cmd_add_graph_node(args: argparse.Namespace) -> None:
     if args.graph_name:
         arguments["graph_name"] = args.graph_name
     if args.position:
-        arguments["position"] = [int(x) for x in args.position.split(",")]
+        arguments["position"] = _parse_int_list(args.position)
     if args.no_auto_position:
         arguments["auto_position"] = False
     if args.connect_to_node:
@@ -1139,8 +1152,52 @@ def cmd_check_setup(args: argparse.Namespace) -> None:
 
 
 def cmd_knowledge(args: argparse.Namespace) -> None:
-    """Query the optional knowledge server (RAG)."""
-    print("Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.")
+    """Query the optional knowledge server (RAG/PageIndex/Skills)."""
+    if args.list_skills and args.query:
+        print("error: --list-skills cannot be used with a query", file=sys.stderr)
+        sys.exit(1)
+    if args.list_skills and args.type:
+        print("error: --list-skills cannot be used with --type", file=sys.stderr)
+        sys.exit(1)
+    if not args.list_skills and not args.query:
+        print("error: either provide a query or use --list-skills", file=sys.stderr)
+        sys.exit(1)
+
+    import httpx
+
+    server_url = os.environ.get("SOFT_UE_EXPERT_SERVER_URL", "http://localhost:8000")
+    api_key = os.environ.get("SOFT_UE_EXPERT_API_KEY", "dev")
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    try:
+        if args.list_skills:
+            resp = httpx.get(
+                f"{server_url}/query/skills",
+                headers=headers,
+                timeout=30.0,
+            )
+        else:
+            body: dict = {"query": args.query, "max_results": args.max_results}
+            if args.type:
+                body["type"] = args.type
+            resp = httpx.post(
+                f"{server_url}/query",
+                json=body,
+                headers=headers,
+                timeout=30.0,
+            )
+        resp.raise_for_status()
+        _print_json(resp.json())
+    except httpx.ConnectError:
+        print(
+            f"error: cannot connect to knowledge server at {server_url}\n"
+            "Start the knowledge server with: docker compose up",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except httpx.HTTPStatusError as exc:
+        print(f"error: HTTP {exc.response.status_code}", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_skills(args: argparse.Namespace) -> None:
@@ -2563,8 +2620,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_k = sub.add_parser(
         "query-ue-knowledge",
-        help="Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.",
-        description="Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.",
+        help="Query the knowledge server for UE API docs, tutorials, and workflow skills.",
+        description=(
+            "Queries the soft-ue-expert knowledge server for expert UE answers\n"
+            "and workflow skills. Uses hybrid RAG + PageIndex + SkillIndex.\n\n"
+            "Requires environment variables:\n"
+            "  SOFT_UE_EXPERT_SERVER_URL  (default: http://localhost:8000)\n"
+            "  SOFT_UE_EXPERT_API_KEY     (default: dev)\n\n"
+            "EXAMPLES:\n"
+            '  soft-ue-cli query-ue-knowledge "How do custom movement modes work in CMC?"\n'
+            '  soft-ue-cli query-ue-knowledge "UCharacterMovementComponent MaxWalkSpeed"\n'
+            '  soft-ue-cli query-ue-knowledge "graph cleanup" --type skill\n'
+            "  soft-ue-cli query-ue-knowledge --list-skills"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_k.add_argument("query", nargs="?", default=None, help="Natural language question about UE API or behavior")
