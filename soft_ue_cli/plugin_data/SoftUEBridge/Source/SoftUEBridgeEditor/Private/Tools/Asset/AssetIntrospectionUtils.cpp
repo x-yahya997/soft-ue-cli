@@ -7,6 +7,9 @@
 #include "Internationalization/Text.h"
 #include "Kismet2/StructureEditorUtils.h"
 #include "StructUtils/UserDefinedStruct.h"
+#if __has_include("UserDefinedStructure/UserDefinedStructEditorData.h")
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
+#endif
 #include "UObject/EnumProperty.h"
 #include "UObject/UnrealType.h"
 
@@ -131,7 +134,7 @@ namespace
 		}
 
 		FString Exported;
-		Property->ExportText_Direct(Exported, ValuePtr, ValuePtr, UserStruct, PPF_None);
+		Property->ExportText_Direct(Exported, ValuePtr, ValuePtr, const_cast<UUserDefinedStruct*>(UserStruct), PPF_None);
 		return Exported;
 	}
 }

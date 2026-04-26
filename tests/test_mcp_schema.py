@@ -26,6 +26,9 @@ def test_extract_tools_contains_known_command():
     assert "query-blueprint" in tool_names
     assert "query-enum" in tool_names
     assert "query-struct" in tool_names
+    assert "inspect-customizable-object-graph" in tool_names
+    assert "inspect-mutable-parameters" in tool_names
+    assert "inspect-mutable-diagnostics" in tool_names
     assert "inspect-uasset" in tool_names
     assert "diff-uasset" in tool_names
     assert "status" in tool_names
@@ -112,7 +115,7 @@ def test_tool_count_is_reasonable():
     """Should have a stable, non-trivial tool count after exclusions."""
     tools = extract_tools()
     assert len(tools) >= 60
-    assert len(tools) <= 90
+    assert len(tools) <= 95
 
 
 def test_skills_excluded():

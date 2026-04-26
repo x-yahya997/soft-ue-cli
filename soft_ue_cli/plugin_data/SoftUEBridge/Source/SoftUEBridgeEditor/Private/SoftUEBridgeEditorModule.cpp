@@ -15,6 +15,9 @@
 #include "Tools/Asset/DeleteAssetTool.h"
 #include "Tools/Asset/GetAssetDiffTool.h"
 #include "Tools/Asset/GetAssetPreviewTool.h"
+#include "Tools/Asset/InspectCustomizableObjectGraphTool.h"
+#include "Tools/Asset/InspectMutableDiagnosticsTool.h"
+#include "Tools/Asset/InspectMutableParametersTool.h"
 #include "Tools/Asset/OpenAssetTool.h"
 #include "Tools/Asset/ReleaseAssetLockTool.h"
 
@@ -117,6 +120,9 @@ void FSoftUEBridgeEditorModule::StartupModule()
 	Registry.RegisterToolClass<UDeleteAssetTool>();
 	Registry.RegisterToolClass<UGetAssetDiffTool>();
 	Registry.RegisterToolClass<UGetAssetPreviewTool>();
+	Registry.RegisterToolClass<UInspectCustomizableObjectGraphTool>();
+	Registry.RegisterToolClass<UInspectMutableDiagnosticsTool>();
+	Registry.RegisterToolClass<UInspectMutableParametersTool>();
 	Registry.RegisterToolClass<UOpenAssetTool>();
 	Registry.RegisterToolClass<UReleaseAssetLockTool>();
 

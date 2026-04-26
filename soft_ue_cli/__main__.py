@@ -413,6 +413,21 @@ def cmd_release_asset_lock(args: argparse.Namespace) -> None:
     _print_json(_run_tool("release-asset-lock", {"asset_path": args.asset_path}))
 
 
+def cmd_inspect_customizable_object_graph(args: argparse.Namespace) -> None:
+    arguments: dict = {"asset_path": args.asset_path}
+    if args.include_node_properties:
+        arguments["include_node_properties"] = True
+    _print_json(_run_tool("inspect-customizable-object-graph", arguments))
+
+
+def cmd_inspect_mutable_parameters(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("inspect-mutable-parameters", {"asset_path": args.asset_path}))
+
+
+def cmd_inspect_mutable_diagnostics(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("inspect-mutable-diagnostics", {"asset_path": args.asset_path}))
+
+
 def cmd_get_asset_diff(args: argparse.Namespace) -> None:
     arguments: dict = {"asset_path": args.asset_path}
     if args.scm_type:
@@ -2557,6 +2572,56 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ral.add_argument("asset_path", help="Asset path to unlock")
     p_ral.set_defaults(func=cmd_release_asset_lock)
+
+    p_icog = sub.add_parser(
+        "inspect-customizable-object-graph",
+        help="Inspect a Mutable/CustomizableObject graph without requiring a hard Mutable dependency.",
+        description=(
+            "Returns machine-readable graph data for a CustomizableObject asset, including graphs,\n"
+            "nodes, pins, edges, and graph-derived roles such as parameter/projector/output nodes.\n"
+            "If Mutable is not enabled for the project, the command returns an unavailable status\n"
+            "instead of hard-failing the CLI.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli inspect-customizable-object-graph /Game/Characters/CO_Hero.CO_Hero\n"
+            "  soft-ue-cli inspect-customizable-object-graph /Game/Characters/CO_Hero.CO_Hero --include-node-properties"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_icog.add_argument("asset_path", help="CustomizableObject asset path")
+    p_icog.add_argument("--include-node-properties", action="store_true", help="Include a larger reflected property dump per node")
+    p_icog.set_defaults(func=cmd_inspect_customizable_object_graph)
+
+    p_imp = sub.add_parser(
+        "inspect-mutable-parameters",
+        help="Derive structured Mutable parameter metadata from a CustomizableObject asset.",
+        description=(
+            "Returns parameter-oriented metadata such as derived parameter type, grouping hints,\n"
+            "defaults, options, tags, population tags, and related graph nodes.\n"
+            "If Mutable is not enabled for the project, the command returns an unavailable status\n"
+            "instead of hard-failing the CLI.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli inspect-mutable-parameters /Game/Characters/CO_Hero.CO_Hero"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_imp.add_argument("asset_path", help="CustomizableObject asset path")
+    p_imp.set_defaults(func=cmd_inspect_mutable_parameters)
+
+    p_imd = sub.add_parser(
+        "inspect-mutable-diagnostics",
+        help="Report Mutable plugin availability and best-effort runtime diagnostics for a CustomizableObject asset.",
+        description=(
+            "Returns a structured diagnostic report covering plugin availability, engine version,\n"
+            "graph-derived capability hints, and reflected signals for the inspected asset.\n"
+            "If Mutable is not enabled for the project, the command returns a limited/unavailable\n"
+            "status instead of hard-failing the CLI.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli inspect-mutable-diagnostics /Game/Characters/CO_Hero.CO_Hero"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_imd.add_argument("asset_path", help="CustomizableObject asset path")
+    p_imd.set_defaults(func=cmd_inspect_mutable_diagnostics)
 
     p_gad = sub.add_parser(
         "get-asset-diff",

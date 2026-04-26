@@ -515,6 +515,12 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
     run_test("get-asset-preview", "get-asset-preview", {"asset_path": bp_path}, has("file_path"))
     run_test("open-asset", "open-asset", {"asset_path": bp_path}, has("success"))
     run_test("release-asset-lock", "release-asset-lock", {"asset_path": bp_path}, has("success"))
+    run_test("inspect-customizable-object-graph unavailable smoke", "inspect-customizable-object-graph",
+             {"asset_path": bp_path}, lambda r: "available" in r and r["available"] is False)
+    run_test("inspect-mutable-parameters unavailable smoke", "inspect-mutable-parameters",
+             {"asset_path": bp_path}, lambda r: "available" in r and r["available"] is False)
+    run_test("inspect-mutable-diagnostics unavailable smoke", "inspect-mutable-diagnostics",
+             {"asset_path": bp_path}, lambda r: "available" in r)
 
     # ══════════════════════════════════════════════════════════════════════════
     # Suite 7: Blueprint Inspect

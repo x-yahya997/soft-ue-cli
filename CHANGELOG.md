@@ -2,6 +2,24 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.25.10] - 2026-04-25
+
+### Fixed
+- CLI export: restored the public `inspect-customizable-object-graph`, `inspect-mutable-parameters`, and `inspect-mutable-diagnostics` command wrappers so the packaged CLI matches the documented Mutable inspection surface
+
+## [1.25.9] - 2026-04-25
+
+### Added
+- new `inspect-customizable-object-graph` command returns machine-readable graph, node, pin, and edge data for Mutable/CustomizableObject assets
+- new `inspect-mutable-parameters` command derives structured Mutable parameter metadata such as groups, defaults, options, tags, and related graph links
+- new `inspect-mutable-diagnostics` command reports Mutable plugin availability plus best-effort capability and runtime diagnostics for a target asset
+
+### Fixed
+- plugin build: `AssetIntrospectionUtils.cpp` now compiles against UE 5.7 by including `UserDefinedStructEditorData.h` when available and passing a compatible parent object to `ExportText_Direct`
+
+### Changed
+- Mutable inspection commands are implemented without a hard compile-time Mutable dependency, so projects without the plugin return structured unavailable/limited results instead of failing to compile
+
 ## [1.25.8] - 2026-04-23
 
 ### Fixed

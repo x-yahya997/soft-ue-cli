@@ -13,19 +13,11 @@
 
 Built and maintained by a solo developer. [Support this project](#support-this-project) if it saves you time.
 
-This project was originally created to help friends work with Unreal Engine more effectively.
 
 **Control Unreal Engine 5 from your AI agent or terminal.** soft-ue-cli gives any LLM — via **MCP server** or **CLI** — 60+ tools to spawn actors, edit Blueprints, inspect materials, read and patch UE config files, run Play-In-Editor sessions, capture screenshots, profile performance, and more inside a running UE5 editor or packaged build.
 
 Two connection paths. Same package. Bridge tools when Unreal is running, offline tools when it is not.
 
-## Project Status
-
-Public development of this repository is winding down.
-
-Future work may continue in a private environment because ongoing development can involve proprietary employer-owned code that cannot be published here.
-
-The code already published in this repository remains available as a prototype and reference implementation. You are welcome to use it, fork it, and extend it in accordance with the repository license.
 
 ```text
 LLM client / shell / CI
@@ -244,6 +236,9 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 | `query-asset` | Search the Content Browser by name, class, or path -- also inspect DataTables and map `WorldSettings` such as `DefaultGameMode` |
 | `query-enum` | Inspect a UserDefinedEnum asset -- authored names, display names, tooltips, numeric values |
 | `query-struct` | Inspect a UserDefinedStruct asset -- authored member names, defaults, and metadata |
+| `inspect-customizable-object-graph` | Inspect a Mutable/CustomizableObject graph and return graphs, nodes, pins, edges, and derived node roles |
+| `inspect-mutable-parameters` | Derive structured Mutable parameter metadata such as groups, defaults, options, tags, and related graph links |
+| `inspect-mutable-diagnostics` | Report Mutable plugin availability and best-effort capability/runtime diagnostics for a target asset |
 | `create-asset` | Create new Blueprint, Material, DataTable, World (Level), or other asset types |
 | `delete-asset` | Delete an asset |
 | `release-asset-lock` | Best-effort close editors and release UE file handles for a specific asset |
@@ -478,6 +473,14 @@ soft-ue-cli diff-uasset D:/snapshots/Actor_before.uasset D:/Project/Content/__Ex
 ```bash
 soft-ue-cli query-enum /Game/Data/E_TraversalActionType
 soft-ue-cli query-struct /Game/Data/S_TraversalCheckResult
+```
+
+### Inspect Mutable / CustomizableObject assets safely
+
+```bash
+soft-ue-cli inspect-customizable-object-graph /Game/Characters/CO_Hero.CO_Hero
+soft-ue-cli inspect-mutable-parameters /Game/Characters/CO_Hero.CO_Hero
+soft-ue-cli inspect-mutable-diagnostics /Game/Characters/CO_Hero.CO_Hero
 ```
 
 ### Start a PIE session and send input

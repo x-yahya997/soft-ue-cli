@@ -25,6 +25,9 @@ from soft_ue_cli.__main__ import (
     cmd_delete_script,
     cmd_exec_console_command,
     cmd_inspect_anim_instance,
+    cmd_inspect_customizable_object_graph,
+    cmd_inspect_mutable_diagnostics,
+    cmd_inspect_mutable_parameters,
     cmd_inspect_pawn_possession,
     cmd_list_scripts,
     cmd_pie_tick,
@@ -618,6 +621,68 @@ def test_cmd_release_asset_lock_forwards_args():
         cmd_release_asset_lock(args)
 
     mock_run.assert_called_once_with("release-asset-lock", {"asset_path": "/Game/Blueprints/BP_Player"})
+
+
+def test_parser_inspect_customizable_object_graph():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["inspect-customizable-object-graph", "/Game/Characters/CO_Hero.CO_Hero", "--include-node-properties"]
+    )
+    assert args.asset_path == "/Game/Characters/CO_Hero.CO_Hero"
+    assert args.include_node_properties is True
+
+
+def test_cmd_inspect_customizable_object_graph_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["inspect-customizable-object-graph", "/Game/Characters/CO_Hero.CO_Hero", "--include-node-properties"]
+    )
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_inspect_customizable_object_graph(args)
+
+    mock_run.assert_called_once_with(
+        "inspect-customizable-object-graph",
+        {"asset_path": "/Game/Characters/CO_Hero.CO_Hero", "include_node_properties": True},
+    )
+
+
+def test_parser_inspect_mutable_parameters():
+    parser = build_parser()
+    args = parser.parse_args(["inspect-mutable-parameters", "/Game/Characters/CO_Hero.CO_Hero"])
+    assert args.asset_path == "/Game/Characters/CO_Hero.CO_Hero"
+
+
+def test_cmd_inspect_mutable_parameters_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(["inspect-mutable-parameters", "/Game/Characters/CO_Hero.CO_Hero"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_inspect_mutable_parameters(args)
+
+    mock_run.assert_called_once_with(
+        "inspect-mutable-parameters",
+        {"asset_path": "/Game/Characters/CO_Hero.CO_Hero"},
+    )
+
+
+def test_parser_inspect_mutable_diagnostics():
+    parser = build_parser()
+    args = parser.parse_args(["inspect-mutable-diagnostics", "/Game/Characters/CO_Hero.CO_Hero"])
+    assert args.asset_path == "/Game/Characters/CO_Hero.CO_Hero"
+
+
+def test_cmd_inspect_mutable_diagnostics_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(["inspect-mutable-diagnostics", "/Game/Characters/CO_Hero.CO_Hero"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_inspect_mutable_diagnostics(args)
+
+    mock_run.assert_called_once_with(
+        "inspect-mutable-diagnostics",
+        {"asset_path": "/Game/Characters/CO_Hero.CO_Hero"},
+    )
 
 
 # -- capture-screenshot parser -------------------------------------------------
