@@ -150,6 +150,9 @@ FBridgeToolResult UOpenAssetTool::ExecuteAssetMode(const FString& AssetPath, boo
 	// passes to release subsystems still hanging on to the outgoing world.
 	FSuppressMapLoadFatalDevice SuppressDevice;
 	const bool bIsWorld = Asset->IsA<UWorld>();
+	const FString AssetName = Asset->GetName();
+	const FString AssetClassName = Asset->GetClass() ? Asset->GetClass()->GetName() : TEXT("Unknown");
+	const FString EditorTypeName = bIsWorld ? TEXT("Level Editor") : GetEditorTypeName(Asset);
 	TOptional<FGErrorGuard> ErrorGuard;
 	if (bIsWorld)
 	{
@@ -205,9 +208,9 @@ FBridgeToolResult UOpenAssetTool::ExecuteAssetMode(const FString& AssetPath, boo
 	Result->SetStringField(TEXT("mode"), TEXT("asset"));
 	Result->SetBoolField(TEXT("success"), true);
 	Result->SetStringField(TEXT("asset_path"), AssetPath);
-	Result->SetStringField(TEXT("asset_name"), Asset->GetName());
-	Result->SetStringField(TEXT("asset_class"), Asset->GetClass()->GetName());
-	Result->SetStringField(TEXT("editor_type"), bIsWorld ? TEXT("Level Editor") : GetEditorTypeName(Asset));
+	Result->SetStringField(TEXT("asset_name"), AssetName);
+	Result->SetStringField(TEXT("asset_class"), AssetClassName);
+	Result->SetStringField(TEXT("editor_type"), EditorTypeName);
 	Result->SetBoolField(TEXT("was_already_open"), bWasAlreadyOpen);
 	if (SuppressDevice.SuppressedMessages.Num() > 0)
 	{
@@ -217,8 +220,8 @@ FBridgeToolResult UOpenAssetTool::ExecuteAssetMode(const FString& AssetPath, boo
 	Result->SetStringField(TEXT("message"), FString::Printf(
 		TEXT("%s %s in %s"),
 		bIsWorld ? TEXT("Loaded") : (bWasAlreadyOpen ? TEXT("Focused") : TEXT("Opened")),
-		*Asset->GetName(),
-		*(bIsWorld ? FString(TEXT("Level Editor")) : GetEditorTypeName(Asset))));
+		*AssetName,
+		*EditorTypeName));
 
 	UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("open-asset (asset mode): %s '%s'"),
 		bIsWorld ? TEXT("Loaded") : (bWasAlreadyOpen ? TEXT("Focused") : TEXT("Opened")), *AssetPath);

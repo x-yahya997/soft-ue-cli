@@ -2,6 +2,11 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.20.5] - 2026-04-10
+
+### Fixed
+- `open-asset` no longer dereferences a stale `UWorld` pointer after `LoadLevel()`, fixing the access violation that could occur when loading World assets through the level editor path
+
 ## [1.20.4] - 2026-04-10
 
 ### Fixed
