@@ -2,6 +2,21 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.25.7] - 2026-04-23
+
+### Added
+- new `exec-console-command` command executes arbitrary UE console commands directly in editor, PIE, or game worlds without requiring a Python wrapper script
+- new `inspect-pawn-possession` command returns structured controller/pawn possession state, AI auto-possession settings, and visibility data for runtime debugging
+- new `validate-class-path` command verifies whether a soft class path exists, loads, resolves to a `UClass`, and reports its parent hierarchy
+- new `request-gameplay-tag` helper resolves a registered gameplay tag name and returns validity plus export text
+- new `reload-gameplay-tags` helper reloads GameplayTags settings and refreshes the in-memory tag tables
+- new `release-asset-lock` best-effort command closes asset editors and forces GC to reduce editor-side file-handle conflicts during VCS workflows
+
+### Changed
+- `get-logs` now supports server-side `--contains`, cursor/timestamp-based `--since`, and `--tail-follow` polling for targeted runtime log inspection
+- `run-python-script --world pie`, `exec-console-command`, and `inspect-pawn-possession` now fail fast with a structured `PIE_NOT_RUNNING` error unless PIE is already running or auto-start is requested
+- `trigger-live-coding` now warns before dispatch when git reports changed reflected header files that are likely to make Live Coding cancel
+
 ## [1.25.6] - 2026-04-22
 
 ### Fixed

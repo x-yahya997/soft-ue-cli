@@ -96,6 +96,48 @@ def _parse_json_arg(value: str, flag: str) -> object:
         sys.exit(1)
 
 
+def _emit_structured_error(code: str, message: str, **extra: object) -> None:
+    payload = {"success": False, "code": code, "error": message}
+    payload.update(extra)
+    _print_json(payload)
+    sys.exit(1)
+
+
+def _query_pie_state() -> dict | None:
+    from .errors import BridgeError
+
+    try:
+        return call_tool("pie-session", {"action": "get-state"})
+    except BridgeError:
+        return None
+
+
+def _ensure_pie_running(
+    *,
+    auto_start: bool,
+    map_path: str | None = None,
+    timeout: float | None = None,
+    command_name: str,
+) -> None:
+    state = _query_pie_state()
+    if state and state.get("state") in {"running", "starting"}:
+        return
+
+    if not auto_start:
+        _emit_structured_error(
+            "PIE_NOT_RUNNING",
+            "PIE session is not running. Start PIE first or use --auto-start-pie.",
+            command=command_name,
+        )
+
+    start_args: dict[str, object] = {"action": "start"}
+    if map_path:
+        start_args["map"] = map_path
+    if timeout is not None:
+        start_args["timeout"] = timeout
+    call_tool("pie-session", start_args)
+
+
 # -- Command handlers ----------------------------------------------------------
 
 
@@ -261,16 +303,42 @@ def cmd_get_property(args: argparse.Namespace) -> None:
 
 def cmd_get_logs(args: argparse.Namespace) -> None:
     arguments: dict = {"lines": args.lines}
-    if args.filter:
-        arguments["filter"] = args.filter
+    filter_text = args.contains or args.filter
+    if filter_text:
+        arguments["filter"] = filter_text
     if args.category:
         arguments["category"] = args.category
-    result = _run_tool("get-logs", arguments)
-    if args.raw:
-        for line in result.get("lines", []):
-            print(line)
-    else:
-        _print_json(result)
+    if args.since:
+        arguments["since"] = args.since
+
+    if not args.tail_follow:
+        result = _run_tool("get-logs", arguments)
+        if args.raw:
+            for line in result.get("lines", []):
+                print(line)
+        else:
+            _print_json(result)
+        return
+
+    # tail-follow starts from "now" if no cursor/timestamp is provided explicitly
+    if not args.since:
+        snapshot = _run_tool("get-logs", {"lines": 0})
+        arguments["since"] = snapshot.get("next_cursor") or snapshot.get("last_timestamp") or ""
+
+    try:
+        while True:
+            result = _run_tool("get-logs", arguments)
+            if args.raw:
+                for line in result.get("lines", []):
+                    print(line)
+            else:
+                _print_json(result)
+            next_cursor = result.get("next_cursor")
+            if next_cursor:
+                arguments["since"] = str(next_cursor)
+            time.sleep(args.poll_interval)
+    except KeyboardInterrupt:
+        return
 
 
 def cmd_get_console_var(args: argparse.Namespace) -> None:
@@ -293,6 +361,13 @@ def cmd_class_hierarchy(args: argparse.Namespace) -> None:
     if args.no_blueprints:
         arguments["include_blueprints"] = False
     _print_json(_run_tool("get-class-hierarchy", arguments))
+
+
+def cmd_validate_class_path(args: argparse.Namespace) -> None:
+    arguments: dict = {"class_path": args.class_path}
+    if args.parent_depth is not None:
+        arguments["parent_depth"] = args.parent_depth
+    _print_json(_run_tool("validate-class-path", arguments))
 
 
 def cmd_query_asset(args: argparse.Namespace) -> None:
@@ -332,6 +407,10 @@ def cmd_query_struct(args: argparse.Namespace) -> None:
 
 def cmd_delete_asset(args: argparse.Namespace) -> None:
     _print_json(_run_tool("delete-asset", {"asset_path": args.asset_path}))
+
+
+def cmd_release_asset_lock(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("release-asset-lock", {"asset_path": args.asset_path}))
 
 
 def cmd_get_asset_diff(args: argparse.Namespace) -> None:
@@ -654,6 +733,8 @@ def cmd_trigger_live_coding(args: argparse.Namespace) -> None:
     arguments: dict = {}
     if not args.no_wait:
         arguments["wait_for_completion"] = True
+    if args.allow_header_changes:
+        arguments["allow_header_changes"] = True
     _print_json(_run_tool("trigger-live-coding", arguments))
 
 
@@ -717,6 +798,24 @@ def cmd_query_mpc(args: argparse.Namespace) -> None:
     _print_json(_run_tool("query-mpc", arguments))
 
 
+def cmd_exec_console_command(args: argparse.Namespace) -> None:
+    if args.world == "pie":
+        _ensure_pie_running(
+            auto_start=args.auto_start_pie,
+            map_path=args.map,
+            timeout=args.pie_timeout,
+            command_name="exec-console-command",
+        )
+
+    arguments: dict = {
+        "command": " ".join(args.command_parts),
+        "world": args.world,
+    }
+    if args.player_index is not None:
+        arguments["player_index"] = args.player_index
+    _print_json(_run_tool("exec-console-command", arguments))
+
+
 def cmd_pie_session(args: argparse.Namespace) -> None:
     arguments: dict = {"action": args.action}
     if args.mode:
@@ -738,6 +837,25 @@ def cmd_pie_session(args: argparse.Namespace) -> None:
     if args.wait_timeout is not None:
         arguments["wait_timeout"] = args.wait_timeout
     _print_json(_run_tool("pie-session", arguments))
+
+
+def cmd_inspect_pawn_possession(args: argparse.Namespace) -> None:
+    if args.world == "pie":
+        _ensure_pie_running(
+            auto_start=args.auto_start_pie,
+            map_path=args.map,
+            timeout=args.pie_timeout,
+            command_name="inspect-pawn-possession",
+        )
+
+    arguments: dict = {"world": args.world}
+    if args.class_filter:
+        arguments["class_filter"] = args.class_filter
+    if args.actor_name:
+        arguments["actor_name"] = args.actor_name
+    if args.include_hidden:
+        arguments["include_hidden"] = True
+    _print_json(_run_tool("inspect-pawn-possession", arguments))
 
 
 def cmd_pie_tick(args: argparse.Namespace) -> None:
@@ -872,10 +990,25 @@ def cmd_run_python_script(args: argparse.Namespace) -> None:
     if args.python_paths:
         arguments["python_paths"] = args.python_paths
     if args.world:
+        if args.world == "pie":
+            _ensure_pie_running(
+                auto_start=args.auto_start_pie,
+                map_path=args.map,
+                timeout=args.pie_timeout,
+                command_name="run-python-script",
+            )
         arguments["world"] = args.world
     if args.arguments:
         arguments["arguments"] = _parse_json_arg(args.arguments, "--arguments")
     _print_json(_run_tool("run-python-script", arguments))
+
+
+def cmd_request_gameplay_tag(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("request-gameplay-tag", {"tag_name": args.tag_name}))
+
+
+def cmd_reload_gameplay_tags(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("reload-gameplay-tags", {}))
 
 
 def cmd_save_script(args: argparse.Namespace) -> None:
@@ -1372,7 +1505,7 @@ def cmd_check_setup(args: argparse.Namespace) -> None:
 
 
 def cmd_knowledge(args: argparse.Namespace) -> None:
-    """Query the optional knowledge server (RAG)."""
+    """Query the optional knowledge server (RAG/PageIndex/Skills)."""
     print("Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.")
 
 
@@ -2244,7 +2377,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--lines", type=int, default=100, metavar="N", help="Number of recent lines to return (default: 100)"
     )
     p_gl.add_argument("--filter", metavar="TEXT", help="Case-insensitive substring filter on log text")
+    p_gl.add_argument("--contains", metavar="TEXT", help="Alias for --filter; substring filter applied server-side")
     p_gl.add_argument("--category", metavar="CAT", help="Filter by log category (e.g. LogAI, LogTemp, LogEngine)")
+    p_gl.add_argument("--since", metavar="CURSOR", help="Return only entries after this timestamp/cursor")
+    p_gl.add_argument("--tail-follow", action="store_true", help="Poll for new entries until interrupted (like tail -f)")
+    p_gl.add_argument(
+        "--poll-interval",
+        type=float,
+        default=0.5,
+        metavar="SEC",
+        help="Polling interval for --tail-follow (default: 0.5)",
+    )
     p_gl.add_argument("--raw", action="store_true", help="Output plain text lines instead of JSON")
     p_gl.set_defaults(func=cmd_get_logs)
 
@@ -2304,6 +2447,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_ch.add_argument("--depth", type=int, metavar="N", help="Max inheritance depth (default: 10)")
     p_ch.add_argument("--no-blueprints", action="store_true", help="Exclude Blueprint subclasses from children")
     p_ch.set_defaults(func=cmd_class_hierarchy)
+
+    p_vcp = sub.add_parser(
+        "validate-class-path",
+        help="Validate that a soft class path resolves to a loadable UClass.",
+        description=(
+            "Checks whether a class path exists, whether it loads, whether it resolves to a UClass,\n"
+            "and returns the resolved class plus its parent chain.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli validate-class-path /Game/Characters/BP_Hero.BP_Hero_C\n"
+            "  soft-ue-cli validate-class-path /Game/Characters/BP_Hero --parent-depth 5"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_vcp.add_argument("class_path", help="Soft class path or asset path to validate")
+    p_vcp.add_argument("--parent-depth", type=int, metavar="N", help="Limit returned parent classes (default: 10)")
+    p_vcp.set_defaults(func=cmd_validate_class_path)
 
     # -------------------------------------------------------------------------
     # Editor tools — Asset
@@ -2384,6 +2543,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_da.add_argument("asset_path", help="Asset path to delete (e.g. /Game/MyBlueprint)")
     p_da.set_defaults(func=cmd_delete_asset)
+
+    p_ral = sub.add_parser(
+        "release-asset-lock",
+        help="Best-effort release of UE editor file handles for an asset.",
+        description=(
+            "Closes open asset editors for the target asset and forces garbage collection.\n"
+            "This is intended to reduce file-in-use conflicts during version-control operations.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli release-asset-lock /Game/Blueprints/BP_Player"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_ral.add_argument("asset_path", help="Asset path to unlock")
+    p_ral.set_defaults(func=cmd_release_asset_lock)
 
     p_gad = sub.add_parser(
         "get-asset-diff",
@@ -2539,6 +2712,11 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_tlc.add_argument("--no-wait", action="store_true", help="Return immediately without waiting for compilation result")
+    p_tlc.add_argument(
+        "--allow-header-changes",
+        action="store_true",
+        help="Bypass reflected-header safety check and trigger Live Coding anyway",
+    )
     p_tlc.set_defaults(func=cmd_trigger_live_coding)
 
     # -------------------------------------------------------------------------
@@ -2639,6 +2817,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_qmpc.add_argument("--world", choices=["editor", "pie", "game"], help="World context")
     p_qmpc.set_defaults(func=cmd_query_mpc)
 
+    p_ecc = sub.add_parser(
+        "exec-console-command",
+        help="Execute an arbitrary UE console command in a target world.",
+        description=(
+            "Runs an arbitrary console command directly in the editor, PIE, or game world.\n"
+            "PIE is the default target because this is most commonly used for iterative gameplay testing.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli exec-console-command stat fps\n"
+            "  soft-ue-cli exec-console-command --world editor r.Streaming.PoolSize 4000\n"
+            "  soft-ue-cli exec-console-command --player-index 0 MyGame.MyCommand arg1 arg2"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_ecc.add_argument("--world", choices=["pie", "editor", "game"], default="pie", help="World context (default: pie)")
+    p_ecc.add_argument("--player-index", type=int, metavar="N", help="Player controller index when executing in PIE/game")
+    p_ecc.add_argument("--auto-start-pie", action="store_true", help="Start PIE automatically when --world pie is requested")
+    p_ecc.add_argument("--map", metavar="PATH", help="Map to load if --auto-start-pie starts a PIE session")
+    p_ecc.add_argument("--pie-timeout", type=float, default=30.0, metavar="SEC", help="Timeout for PIE auto-start (default: 30)")
+    p_ecc.add_argument("command_parts", nargs="+", help="Console command to execute")
+    p_ecc.set_defaults(func=cmd_exec_console_command)
+
     # -------------------------------------------------------------------------
     # Editor tools — PIE
     # -------------------------------------------------------------------------
@@ -2714,6 +2913,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_iai.add_argument("--include", metavar="LIST", help="Comma-separated sections: state_machines,montages,notifies,blend_weights")
     p_iai.add_argument("--blend-weights", metavar="LIST", help="Comma-separated UAnimInstance float property names to read")
     p_iai.set_defaults(func=cmd_inspect_anim_instance)
+
+    p_ipp = sub.add_parser(
+        "inspect-pawn-possession",
+        help="Inspect controller/pawn possession state in a running world.",
+        description=(
+            "Returns structured JSON describing controllers, possessed pawns, pawn/controller links,\n"
+            "AI auto-possession settings, and hidden state.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli inspect-pawn-possession\n"
+            "  soft-ue-cli inspect-pawn-possession --class-filter Character\n"
+            "  soft-ue-cli inspect-pawn-possession --world editor --actor-name BP_Hero_C_0"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_ipp.add_argument("--world", choices=["pie", "editor", "game"], default="pie", help="World context (default: pie)")
+    p_ipp.add_argument("--class-filter", metavar="CLASS", help="Only include pawns matching this class name")
+    p_ipp.add_argument("--actor-name", metavar="NAME", help="Only include a specific pawn/controller name")
+    p_ipp.add_argument("--include-hidden", action="store_true", help="Include hidden actors even when filtering")
+    p_ipp.add_argument("--auto-start-pie", action="store_true", help="Start PIE automatically when --world pie is requested")
+    p_ipp.add_argument("--map", metavar="PATH", help="Map to load if --auto-start-pie starts a PIE session")
+    p_ipp.add_argument("--pie-timeout", type=float, default=30.0, metavar="SEC", help="Timeout for PIE auto-start (default: 30)")
+    p_ipp.set_defaults(func=cmd_inspect_pawn_possession)
 
     p_ti = sub.add_parser(
         "trigger-input",
@@ -2874,10 +3095,33 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["editor", "pie", "game"],
         help="World helper to expose during execution (default: editor)",
     )
+    p_rps.add_argument("--auto-start-pie", action="store_true", help="Start PIE automatically when --world pie is requested")
+    p_rps.add_argument("--map", metavar="PATH", help="Map to load if --auto-start-pie starts a PIE session")
+    p_rps.add_argument("--pie-timeout", type=float, default=30.0, metavar="SEC", help="Timeout for PIE auto-start (default: 30)")
     p_rps.add_argument(
         "--arguments", metavar="JSON", help="Arguments as JSON object (accessible via unreal.get_mcp_args())"
     )
     p_rps.set_defaults(func=cmd_run_python_script)
+
+    p_rgt = sub.add_parser(
+        "request-gameplay-tag",
+        help="Resolve a registered GameplayTag by name.",
+        description=(
+            "Looks up a registered GameplayTag by name and returns validity plus the tag's export text.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli request-gameplay-tag Status.Effect.Burning"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_rgt.add_argument("tag_name", help="GameplayTag name, e.g. Status.Effect.Burning")
+    p_rgt.set_defaults(func=cmd_request_gameplay_tag)
+
+    p_rlgt = sub.add_parser(
+        "reload-gameplay-tags",
+        help="Reload GameplayTags settings and rebuild the in-memory tag data where supported.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_rlgt.set_defaults(func=cmd_reload_gameplay_tags)
 
     p_ss = sub.add_parser(
         "save-script",

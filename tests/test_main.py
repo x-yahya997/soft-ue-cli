@@ -23,15 +23,19 @@ from soft_ue_cli.__main__ import (
     cmd_capture_screenshot,
     cmd_capture_viewport,
     cmd_delete_script,
+    cmd_exec_console_command,
     cmd_inspect_anim_instance,
+    cmd_inspect_pawn_possession,
     cmd_list_scripts,
     cmd_pie_tick,
     cmd_query_enum,
     cmd_query_mpc,
     cmd_query_struct,
+    cmd_release_asset_lock,
     cmd_run_python_script,
     cmd_save_script,
     cmd_setup,
+    cmd_validate_class_path,
 )
 
 
@@ -139,6 +143,9 @@ def test_parser_get_logs_defaults():
     args = parser.parse_args(["get-logs"])
     assert args.lines == 100
     assert args.raw is False
+    assert args.contains is None
+    assert args.since is None
+    assert args.tail_follow is False
 
 
 def test_parser_set_console_var():
@@ -160,6 +167,14 @@ def test_parser_build_and_relaunch_flags():
     assert args.config == "Debug"
     assert args.skip_relaunch is True
     assert args.wait is True
+
+
+def test_parser_get_logs_follow_args():
+    parser = build_parser()
+    args = parser.parse_args(["get-logs", "--contains", "warning", "--since", "42", "--tail-follow"])
+    assert args.contains == "warning"
+    assert args.since == "42"
+    assert args.tail_follow is True
 
 
 def test_parser_inspect_uasset():
@@ -406,9 +421,12 @@ def test_run_python_script_path_reads_file(tmp_path):
     parser = build_parser()
     args = parser.parse_args(["run-python-script", "--script-path", str(script_path), "--world", "pie"])
 
-    with patch("soft_ue_cli.__main__.call_tool", return_value={"output": "ok"}) as mock_call:
+    with patch("soft_ue_cli.__main__._ensure_pie_running") as mock_ensure, patch(
+        "soft_ue_cli.__main__.call_tool", return_value={"output": "ok"}
+    ) as mock_call:
         cmd_run_python_script(args)
 
+    mock_ensure.assert_called_once()
     mock_call.assert_called_once_with(
         "run-python-script",
         {
@@ -416,6 +434,18 @@ def test_run_python_script_path_reads_file(tmp_path):
             "world": "pie",
         },
     )
+
+
+def test_run_python_script_world_pie_auto_start():
+    parser = build_parser()
+    args = parser.parse_args(["run-python-script", "--script", "print('ok')", "--world", "pie", "--auto-start-pie"])
+
+    with patch("soft_ue_cli.__main__._ensure_pie_running") as mock_ensure, patch(
+        "soft_ue_cli.__main__.call_tool", return_value={"output": "ok"}
+    ):
+        cmd_run_python_script(args)
+
+    mock_ensure.assert_called_once()
 
 
 def test_run_python_script_path_missing_exits(tmp_path):
@@ -505,6 +535,89 @@ def test_cmd_build_and_relaunch_forwards_args(capsys):
         "build-and-relaunch",
         {"build_config": "Debug", "skip_relaunch": True},
     )
+
+
+def test_parser_exec_console_command():
+    parser = build_parser()
+    args = parser.parse_args(["exec-console-command", "--world", "editor", "stat", "fps"])
+    assert args.world == "editor"
+    assert args.command_parts == ["stat", "fps"]
+
+
+def test_cmd_exec_console_command_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(["exec-console-command", "--world", "editor", "--player-index", "1", "stat", "fps"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_exec_console_command(args)
+
+    mock_run.assert_called_once_with(
+        "exec-console-command",
+        {"command": "stat fps", "world": "editor", "player_index": 1},
+    )
+
+
+def test_cmd_exec_console_command_auto_starts_pie():
+    parser = build_parser()
+    args = parser.parse_args(["exec-console-command", "--auto-start-pie", "stat", "fps"])
+
+    with patch("soft_ue_cli.__main__._ensure_pie_running") as mock_ensure, patch(
+        "soft_ue_cli.__main__._run_tool", return_value={"success": True}
+    ):
+        cmd_exec_console_command(args)
+
+    mock_ensure.assert_called_once()
+
+
+def test_parser_validate_class_path():
+    parser = build_parser()
+    args = parser.parse_args(["validate-class-path", "/Game/BP_Hero.BP_Hero_C", "--parent-depth", "5"])
+    assert args.class_path == "/Game/BP_Hero.BP_Hero_C"
+    assert args.parent_depth == 5
+
+
+def test_cmd_validate_class_path_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(["validate-class-path", "/Game/BP_Hero"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_validate_class_path(args)
+
+    mock_run.assert_called_once_with("validate-class-path", {"class_path": "/Game/BP_Hero"})
+
+
+def test_parser_inspect_pawn_possession():
+    parser = build_parser()
+    args = parser.parse_args(["inspect-pawn-possession", "--class-filter", "Character", "--actor-name", "Hero"])
+    assert args.class_filter == "Character"
+    assert args.actor_name == "Hero"
+    assert args.world == "pie"
+
+
+def test_cmd_inspect_pawn_possession_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(["inspect-pawn-possession", "--world", "editor", "--class-filter", "Character"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_inspect_pawn_possession(args)
+
+    mock_run.assert_called_once_with("inspect-pawn-possession", {"world": "editor", "class_filter": "Character"})
+
+
+def test_parser_release_asset_lock():
+    parser = build_parser()
+    args = parser.parse_args(["release-asset-lock", "/Game/Blueprints/BP_Player"])
+    assert args.asset_path == "/Game/Blueprints/BP_Player"
+
+
+def test_cmd_release_asset_lock_forwards_args():
+    parser = build_parser()
+    args = parser.parse_args(["release-asset-lock", "/Game/Blueprints/BP_Player"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_release_asset_lock(args)
+
+    mock_run.assert_called_once_with("release-asset-lock", {"asset_path": "/Game/Blueprints/BP_Player"})
 
 
 # -- capture-screenshot parser -------------------------------------------------

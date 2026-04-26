@@ -236,6 +236,7 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 | `query-struct` | Inspect a UserDefinedStruct asset -- authored member names, defaults, and metadata |
 | `create-asset` | Create new Blueprint, Material, DataTable, World (Level), or other asset types |
 | `delete-asset` | Delete an asset |
+| `release-asset-lock` | Best-effort close editors and release UE file handles for a specific asset |
 | `set-asset-property` | Set a property on a Blueprint CDO or component, including nested `InstancedStruct` members |
 | `get-asset-diff` | Get property-level diff of an asset vs. source control |
 | `get-asset-preview` | Get a thumbnail/preview image of an asset |
@@ -254,14 +255,17 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 | Command | Description |
 |---------|-------------|
 | `class-hierarchy` | Inspect class inheritance chains -- ancestors, descendants, or both |
+| `validate-class-path` | Verify that a soft class path exists, loads, and resolves to a `UClass` |
 
 ### Play-In-Editor (PIE) Control
 
 | Command | Description |
 |---------|-------------|
+| `exec-console-command` | Execute arbitrary UE console commands directly in editor, PIE, or game worlds |
 | `pie-session` | Start, stop, pause, resume PIE -- also query actor state during play |
 | `pie-tick` | Start PIE if needed and advance the world deterministically by frame count |
 | `inspect-anim-instance` | Snapshot a target actor's live `UAnimInstance` state, montages, slot activity, and blend weights |
+| `inspect-pawn-possession` | Inspect controller/pawn links, AI auto-possession, and hidden state in a running world |
 | `trigger-input` | Send input events to a running game (PIE or packaged build) |
 
 ### Screenshot and Visual Capture
@@ -276,9 +280,16 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 
 | Command | Description |
 |---------|-------------|
-| `get-logs` | Read the UE output log with optional category and text filters |
+| `get-logs` | Read the UE output log with substring filters, cursors, and follow mode |
 | `get-console-var` | Read the value of a console variable (CVar) |
 | `set-console-var` | Set a console variable value |
+
+### Gameplay Tags
+
+| Command | Description |
+|---------|-------------|
+| `request-gameplay-tag` | Resolve a registered GameplayTag by name and return validity/export text |
+| `reload-gameplay-tags` | Reload GameplayTags settings and refresh tag tables where supported |
 
 ### Python Scripting in UE
 
@@ -340,7 +351,7 @@ Requires the **Animation Insights (GameplayInsights)** plugin enabled in Edit > 
 | Command | Description |
 |---------|-------------|
 | `build-and-relaunch` | Trigger a full C++ rebuild and optionally relaunch the editor (`--wait` to monitor progress) |
-| `trigger-live-coding` | Trigger a Live Coding compile (hot reload); waits for result by default |
+| `trigger-live-coding` | Trigger a Live Coding compile (hot reload); warns on risky reflected header changes |
 
 ### Skills (LLM Workflow Prompts)
 
@@ -410,11 +421,31 @@ soft-ue-cli batch-call --calls '[
 soft-ue-cli call-function --class-path /Script/Engine.Actor --function-name K2_GetActorLocation --spawn-transient
 ```
 
+### Validate a class path before spawning
+
+```bash
+soft-ue-cli validate-class-path /Game/Characters/BP_Hero.BP_Hero_C
+```
+
 ### Tick PIE and inspect animation state
 
 ```bash
 soft-ue-cli pie-tick --frames 30
 soft-ue-cli inspect-anim-instance --actor-tag TestCharacter --include state_machines,montages
+```
+
+### Execute a console command directly in PIE
+
+```bash
+soft-ue-cli exec-console-command stat fps
+soft-ue-cli exec-console-command --player-index 0 MyGame.MyCommand arg1 arg2
+```
+
+### Inspect possession state during PIE
+
+```bash
+soft-ue-cli inspect-pawn-possession
+soft-ue-cli inspect-pawn-possession --class-filter Character
 ```
 
 ### Inspect a Blueprint's components and variables
@@ -487,6 +518,13 @@ soft-ue-cli insert-graph-node /Game/ABP_Hero AnimGraphNode_LinkedAnimLayer \
 ```bash
 soft-ue-cli compile-blueprint /Game/ABP_Hero
 soft-ue-cli save-asset /Game/ABP_Hero
+```
+
+### Refresh GameplayTags after editing config
+
+```bash
+soft-ue-cli reload-gameplay-tags
+soft-ue-cli request-gameplay-tag Status.Effect.Burning
 ```
 
 ### Disconnect a specific wire (preserving others)

@@ -375,6 +375,14 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
 
     run_test("project-info", "get-project-info", {}, has("project_name"))
     run_test("get-logs", "get-logs", {"limit": 10}, has("lines"))
+    try:
+        _logs_cursor = caller("get-logs", {"lines": 0}, None).get("next_cursor")
+    except Exception:
+        _logs_cursor = None
+    if _logs_cursor:
+        run_test("get-logs since cursor", "get-logs", {"since": _logs_cursor}, has("entries"))
+    else:
+        _record("get-logs since cursor", "get-logs", {}, True, 0, "skipped: no cursor available")
 
     # ══════════════════════════════════════════════════════════════════════════
     # Suite 2: Console Variables
@@ -506,6 +514,7 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
              {"asset_path": test_level_path}, lambda r: "world_settings" in r and "default_game_mode" in r)
     run_test("get-asset-preview", "get-asset-preview", {"asset_path": bp_path}, has("file_path"))
     run_test("open-asset", "open-asset", {"asset_path": bp_path}, has("success"))
+    run_test("release-asset-lock", "release-asset-lock", {"asset_path": bp_path}, has("success"))
 
     # ══════════════════════════════════════════════════════════════════════════
     # Suite 7: Blueprint Inspect
@@ -652,6 +661,8 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
              {"class_name": "Actor", "direction": "children", "depth": 2}, has("children"))
     run_test("class-hierarchy StaticMeshActor", "get-class-hierarchy",
              {"class_name": "StaticMeshActor"}, has("class"))
+    run_test("validate-class-path Actor", "validate-class-path",
+             {"class_path": "/Script/Engine.Actor"}, has("class_exists"))
 
     # ══════════════════════════════════════════════════════════════════════════
     # Suite 10: Find References
@@ -711,6 +722,10 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
              {"action": "start", "timeout": PIE_TIMEOUT}, has("success"), timeout=PIE_TIMEOUT)
     time.sleep(4)
     run_test("pie-session status", "pie-session", {"action": "status"}, has("state"), timeout=PIE_TIMEOUT)
+    run_test("exec-console-command stat fps", "exec-console-command",
+             {"command": "stat fps", "world": "pie"}, has("success"), timeout=PIE_TIMEOUT)
+    run_test("inspect-pawn-possession", "inspect-pawn-possession",
+             {"world": "pie"}, has("pawns"), timeout=PIE_TIMEOUT)
     run_test("get-logs during PIE", "get-logs", {"limit": 5}, has("lines"), timeout=PIE_TIMEOUT)
     run_test("pie-session stop", "pie-session", {"action": "stop", "timeout": PIE_TIMEOUT}, has("success"), timeout=PIE_TIMEOUT)
 
@@ -773,6 +788,7 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
     run_test("run-python-script inline", "run-python-script", {
         "script": "import unreal; print(unreal.SystemLibrary.get_engine_version())"
     }, has("output"))
+    run_test("reload-gameplay-tags", "reload-gameplay-tags", {}, has("success"))
 
     run_cli("save-script", "save-script", script_name,
             "--script", "print('soft-ue-cli test script')")
@@ -793,6 +809,23 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
         )
     run_cli("run-python-script helper import", "run-python-script", "--script-path", helper_script,
             check_stdout=lambda s: "HELPER_ACTORS" in s and "HELPER_FILE" in s)
+    try:
+        _project_tags = caller("get-project-info", {"section": "tags"}, None).get("settings", {}).get("tags", {})
+        _tag_sources = _project_tags.get("sources", [])
+        _first_tag = None
+        for _source in _tag_sources:
+            _tags = _source.get("tags") or []
+            if _tags:
+                _first_tag = _tags[0]
+                break
+    except Exception:
+        _first_tag = None
+    if _first_tag:
+        run_test("request-gameplay-tag", "request-gameplay-tag",
+                 {"tag_name": _first_tag}, has("valid"))
+    else:
+        _record("request-gameplay-tag", "request-gameplay-tag", {},
+                True, 0, "skipped: no gameplay tags found in project-info")
 
     begin_suite("advanced-automation")
 

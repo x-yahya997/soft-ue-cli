@@ -33,6 +33,8 @@ public:
 
 private:
 #if PLATFORM_WINDOWS
+	bool DetectReflectedHeaderChanges(TArray<FString>& OutFiles) const;
+
 	// Execute synchronous compilation (blocks until complete)
 	FBridgeToolResult ExecuteSynchronous(ILiveCodingModule* LiveCodingModule);
 

@@ -6,6 +6,7 @@
 
 // Analysis
 #include "Tools/Analysis/ClassHierarchyTool.h"
+#include "Tools/Analysis/ValidateClassPathTool.h"
 
 // Asset
 #include "Tools/Asset/QueryAssetTool.h"
@@ -15,6 +16,7 @@
 #include "Tools/Asset/GetAssetDiffTool.h"
 #include "Tools/Asset/GetAssetPreviewTool.h"
 #include "Tools/Asset/OpenAssetTool.h"
+#include "Tools/Asset/ReleaseAssetLockTool.h"
 
 // Blueprint
 #include "Tools/Blueprint/QueryBlueprintTool.h"
@@ -33,8 +35,10 @@
 #include "Tools/Material/QueryMPCTool.h"
 
 // PIE
+#include "Tools/PIE/ExecConsoleCommandTool.h"
 #include "Tools/PIE/PieSessionTool.h"
 #include "Tools/PIE/PieTickTool.h"
+#include "Tools/PIE/InspectPawnPossessionTool.h"
 
 // Performance
 #include "Tools/Performance/InsightsCaptureTool.h"
@@ -52,6 +56,8 @@
 
 // Project
 #include "Tools/Project/ProjectInfoTool.h"
+#include "Tools/Project/ReloadGameplayTagsTool.h"
+#include "Tools/Project/RequestGameplayTagTool.h"
 
 // References
 #include "Tools/References/FindReferencesTool.h"
@@ -102,6 +108,7 @@ void FSoftUEBridgeEditorModule::StartupModule()
 
 	// Analysis
 	Registry.RegisterToolClass<UClassHierarchyTool>();
+	Registry.RegisterToolClass<UValidateClassPathTool>();
 
 	// Asset
 	Registry.RegisterToolClass<UQueryAssetTool>();
@@ -111,6 +118,7 @@ void FSoftUEBridgeEditorModule::StartupModule()
 	Registry.RegisterToolClass<UGetAssetDiffTool>();
 	Registry.RegisterToolClass<UGetAssetPreviewTool>();
 	Registry.RegisterToolClass<UOpenAssetTool>();
+	Registry.RegisterToolClass<UReleaseAssetLockTool>();
 
 	// Blueprint
 	Registry.RegisterToolClass<UQueryBlueprintTool>();
@@ -129,8 +137,10 @@ void FSoftUEBridgeEditorModule::StartupModule()
 	Registry.RegisterToolClass<UQueryMPCTool>();
 
 	// PIE
+	Registry.RegisterToolClass<UExecConsoleCommandTool>();
 	Registry.RegisterToolClass<UPieSessionTool>();
 	Registry.RegisterToolClass<UPieTickTool>();
+	Registry.RegisterToolClass<UInspectPawnPossessionTool>();
 
 	// Performance
 	Registry.RegisterToolClass<UInsightsCaptureTool>();
@@ -148,6 +158,8 @@ void FSoftUEBridgeEditorModule::StartupModule()
 
 	// Project
 	Registry.RegisterToolClass<UProjectInfoTool>();
+	Registry.RegisterToolClass<UReloadGameplayTagsTool>();
+	Registry.RegisterToolClass<URequestGameplayTagTool>();
 
 	// References
 	Registry.RegisterToolClass<UFindReferencesTool>();
