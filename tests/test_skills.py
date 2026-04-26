@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from soft_ue_cli import skills as skills_mod
 from soft_ue_cli.skills import get_skill, list_skills
 from soft_ue_cli.__main__ import build_parser, cmd_skills
 
@@ -34,7 +35,6 @@ def test_list_skills_contains_blueprint_to_cpp():
     assert "author-anim-state-test" in names
     assert "author-bp-parity-test" in names
     assert "author-invariant-test" in names
-    assert "run-test" in names
 
 
 # -- get_skill -----------------------------------------------------------------
@@ -53,15 +53,18 @@ def test_get_skill_returns_content():
 def test_test_tools_contains_idempotent_teardown_and_insights_stop():
     content = get_skill("test-tools")
     assert content is not None
+    assert "When a new CLI tool, MCP-exposed tool, or new inspect/diff section is added" in content
     assert "already removed (treated as pass)" in content
     assert "auto-stopped (treated as pass)" in content
     assert 'encoding="utf-8"' in content
     assert "open test level retry" in content
     assert "save-asset (test level before restore)" in content
     assert "inspect-uasset summary" in content
+    assert "inspect-uasset properties" in content
     assert "asset_to_disk_path" in content
     assert "project_directory" in content
     assert "diff-uasset summary" in content
+    assert "diff-uasset properties" in content
     assert "save-asset blueprint" in content
     assert "shutil.copy2" in content
 
@@ -119,19 +122,35 @@ def test_replay_changes_skill_mentions_bundle_workflow():
 def test_author_test_skill_mentions_supported_subskills():
     content = get_skill("author-test")
     assert content is not None
+    assert "Use a two-layer workflow:" in content
+    assert "Exploration layer: CLI + bridge + Python scripts" in content
+    assert "Committed layer: C++ Automation Spec tests" in content
     assert "author-regression-test" in content
     assert "author-anim-state-test" in content
     assert "author-bp-parity-test" in content
     assert "author-invariant-test" in content
-    assert "run-test" in content
+    assert "C++ scaffold" in content
 
 
-def test_run_test_skill_mentions_supported_targets():
-    content = get_skill("run-test")
-    assert content is not None
-    assert "tests/gameplay/<file>.py" in content
-    assert "run-python-script --script-path" in content
-    assert "does not run C++ Automation Spec tests" in content
+def test_authoring_subskills_target_cpp_committed_tests():
+    regression = get_skill("author-regression-test")
+    anim = get_skill("author-anim-state-test")
+    parity = get_skill("author-bp-parity-test")
+    invariant = get_skill("author-invariant-test")
+
+    assert regression is not None
+    assert anim is not None
+    assert parity is not None
+    assert invariant is not None
+
+    assert "committed C++ gameplay regression test" in regression
+    assert "Source/<Project>Tests/Private/Regression/TEST_<Slug>.cpp" in regression
+    assert "committed C++ regression test for animation behavior" in anim
+    assert "Source/<Project>Tests/Private/Anim/TEST_<Slug>.cpp" in anim
+    assert "committed C++ Automation Spec" in parity
+    assert "CLI capture is acceptable here as exploration tooling" in parity
+    assert "single-property invariant" in invariant
+    assert "Source/<Project>Tests/Private/Invariants/TEST_<Slug>.cpp" in invariant
 
 
 # -- skill file validation -----------------------------------------------------
@@ -139,7 +158,7 @@ def test_run_test_skill_mentions_supported_targets():
 
 def test_all_skills_have_required_frontmatter():
     """Every .md skill file must have name, description, and version in frontmatter."""
-    skills_dir = Path(__file__).parents[2] / "cli" / "soft_ue_cli" / "skills"
+    skills_dir = skills_mod._SKILLS_DIR
     for md_file in skills_dir.glob("*.md"):
         text = md_file.read_text(encoding="utf-8")
         assert text.startswith("---"), f"{md_file.name} missing frontmatter"

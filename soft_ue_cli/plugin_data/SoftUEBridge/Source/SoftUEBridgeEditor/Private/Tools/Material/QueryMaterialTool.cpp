@@ -237,9 +237,8 @@ TSharedPtr<FJsonObject> UQueryMaterialTool::ExpressionToJson(UMaterialExpression
 
 	// Inputs — use GetInputsView() for bounded iteration.
 	// IMPORTANT: Do NOT use the unbounded `for (i=0;;i++) GetInput(i)` pattern.
-	// Some expression subclasses (e.g. RVT samplers) never return nullptr from
-	// GetInput() on out-of-range indices, causing an infinite loop that
-	// allocates JSON objects until OOM.
+	// Some expression subclasses never return nullptr from GetInput() on
+	// out-of-range indices, which can spin forever and OOM the editor.
 	TArray<TSharedPtr<FJsonValue>> InputsArray;
 	TArrayView<FExpressionInput*> Inputs = Expression->GetInputsView();
 	for (int32 i = 0; i < Inputs.Num(); i++)

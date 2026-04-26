@@ -10,11 +10,24 @@ Built and maintained by a solo developer. [Support this project](#support-this-p
 
 **Control Unreal Engine 5 from your AI agent or terminal.** soft-ue-cli gives any LLM — via **MCP server** or **CLI** — 60+ tools to spawn actors, edit Blueprints, inspect materials, read and patch UE config files, run Play-In-Editor sessions, capture screenshots, profile performance, and more inside a running UE5 editor or packaged build.
 
-Two ways to connect. Same 60+ tools. One pip install. One plugin copy.
+Two connection paths. Same package. Bridge tools when Unreal is running, offline tools when it is not.
 
-<p align="center">
-  <img src="docs/architecture.svg" alt="soft-ue-cli architecture diagram" width="680">
-</p>
+```text
+LLM client / shell / CI
+    |
+    v
+soft-ue-cli  (CLI or MCP server)
+    |
+    +-- Live bridge path ----------------------------------------------+
+    |      HTTP / JSON-RPC
+    |      -> SoftUEBridge plugin inside UE editor / PIE / dev build
+    |      -> Actor, Blueprint, material, widget, PIE, profiling tools
+    |
+    +-- Offline local path --------------------------------------------+
+           Direct local parsing
+           -> .uasset / .uexp / .ini / .uproject / BuildConfiguration.xml
+           -> inspect-uasset, diff-uasset, config tree/get/diff/audit, skills
+```
 
 ---
 
@@ -23,6 +36,7 @@ Two ways to connect. Same 60+ tools. One pip install. One plugin copy.
 - **MCP server + CLI in one package** -- use as an MCP server (`mcp-serve`) for Claude Desktop, Cursor, Windsurf, and other MCP clients, **or** as a standard CLI for Claude Code, shell scripts, and CI/CD. Same 60+ tools either way.
 - **AI-native UE automation** -- purpose-built so LLM agents can read, modify, and test Unreal Engine projects without a human touching the editor.
 - **60+ tools** covering actors, Blueprints, materials, StateTrees, widgets, assets, config files, PIE sessions, profiling, and more.
+- **Online + offline workflows** -- bridge-backed UE mutation and runtime inspection when Unreal is open, plus direct local inspection, diff, and config tooling when it is not.
 - **Config-aware workflows** — inspect hierarchy, trace overrides, diff layers, and patch `.ini`, `BuildConfiguration.xml`, and `.uproject` data from one `config` command group.
 - **LLM skill prompts** -- ships with markdown workflows (e.g. Blueprint-to-C++ conversion) exposed as MCP prompts or CLI commands.
 - **Works everywhere UE runs** -- editor, cooked builds, Windows, macOS, Linux.
@@ -93,23 +107,22 @@ The AI editor now has direct access to all 60+ UE tools and skill prompts — no
 
 ## How It Works
 
-```
-Claude Code
+```text
+soft-ue-cli command
     |
-    |  (runs CLI commands in terminal)
-    v
-soft-ue-cli  (Python process)
+    +-- Bridge-backed commands ----------------------------------------+
+    |      HTTP / JSON-RPC
+    |      -> SoftUEBridge plugin (UGameInstanceSubsystem inside UE)
+    |      -> UE APIs on the game thread
+    |      -> Runtime/editor operations such as spawn-actor, PIE, query-level
     |
-    |  HTTP / JSON-RPC requests
-    v
-SoftUEBridge plugin  (C++ UGameInstanceSubsystem, inside UE process)
-    |
-    |  Native UE API calls on the game thread
-    v
-Unreal Engine 5 editor or runtime
+    +-- Offline commands ----------------------------------------------+
+           Local parsers and file readers
+           -> Package tables / tagged properties / config hierarchy
+           -> inspect-uasset, diff-uasset, config *, skills get/list
 ```
 
-The **SoftUEBridge** plugin is a lightweight C++ `UGameInstanceSubsystem` that starts an embedded HTTP server on port 8080 when UE launches. The CLI sends JSON-RPC requests to this server, and the plugin executes the corresponding UE operations on the game thread, returning structured JSON responses.
+The **SoftUEBridge** plugin is a lightweight C++ `UGameInstanceSubsystem` that starts an embedded HTTP server on port 8080 when UE launches. Bridge-backed commands send JSON-RPC requests to this server, and the plugin executes the corresponding UE operations on the game thread, returning structured JSON responses. Offline commands bypass the bridge entirely and operate directly on local files.
 
 All commands output JSON to stdout (except `get-logs --raw`). Exit code 0 means success, 1 means error.
 
@@ -131,6 +144,20 @@ LLM generates output (e.g. .h/.cpp files) following the skill's rules
 ```
 
 Skills are **markdown files** at `cli/soft_ue_cli/skills/*.md`, shipped as package data in the pip distribution. Each skill is self-contained: workflow instructions, reference tables, example CLI commands, and verification test cases. The CLI discovers them via `skills list` / `skills get`. When running as an MCP server, the same files are exposed via the `prompts/list` and `prompts/get` protocol.
+
+### Test Workflow
+
+Use soft-ue-cli to explore and debug a gameplay bug quickly, then move the final regression into the project's C++ Automation Spec suite.
+
+```text
+CLI + bridge + Python exploration
+    -> find the signal
+    -> validate the repro
+    -> identify the exact assertion
+    -> write the committed C++ Automation Spec in the project test module
+```
+
+The CLI is the exploration layer. The committed regression gate should live in project-native C++ tests rather than depending on the CLI, bridge, or Python runtime.
 
 ### MCP Server Architecture
 
@@ -181,8 +208,8 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 |---------|-------------|
 | `query-blueprint` | Inspect a Blueprint asset -- components, variables, functions, interfaces, event dispatchers |
 | `query-blueprint-graph` | Inspect event graphs, function graphs, and node connections |
-| `inspect-uasset` | Inspect a local `.uasset` file offline by parsed metadata, with best support for Blueprint assets |
-| `diff-uasset` | Diff two local `.uasset` files offline by parsed metadata, with best support for Blueprint assets |
+| `inspect-uasset` | Inspect a local `.uasset` file offline by parsed metadata, with best support for Blueprint and External Actor assets |
+| `diff-uasset` | Diff two local `.uasset` files offline by parsed metadata, with best support for Blueprint and External Actor assets |
 | `add-graph-node` | Add a node to a Blueprint or Material graph (supports `AnimLayerFunction` for ALIs) |
 | `modify-interface` | Add or remove an implemented interface on a Blueprint or AnimBlueprint |
 | `remove-graph-node` | Remove a node from a graph |
@@ -252,7 +279,7 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 
 | Command | Description |
 |---------|-------------|
-| `run-python-script` | Execute a Python script inside UE's embedded Python interpreter |
+| `run-python-script` | Execute a Python script inside UE's embedded Python interpreter, with optional PIE-world helpers |
 | `save-script` | Save a reusable Python script to the local script library |
 | `list-scripts` | List all saved Python scripts |
 | `delete-script` | Delete a saved script |
@@ -271,7 +298,7 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 
 | Command | Description |
 |---------|-------------|
-| `inspect-widget-blueprint` | Inspect UMG Widget Blueprint hierarchy, bindings, and properties |
+| `inspect-widget-blueprint` | Inspect UMG Widget Blueprint hierarchy, bindings, properties, and input mapping key bindings |
 | `inspect-runtime-widgets` | Inspect live UMG widget geometry during PIE sessions |
 | `add-widget` | Add a widget to a Widget Blueprint |
 
@@ -395,7 +422,9 @@ soft-ue-cli query-blueprint /Game/Blueprints/BP_Player --include components,vari
 
 ```bash
 soft-ue-cli inspect-uasset D:/Project/Content/Blueprints/BP_Player.uasset --sections all
+soft-ue-cli inspect-uasset D:/Project/Content/__ExternalActors__/Maps/OpenWorld/5/TQ/ABC123.uasset --sections summary,properties
 soft-ue-cli diff-uasset D:/snapshots/BP_Player_before.uasset D:/Project/Content/Blueprints/BP_Player.uasset --sections variables,functions
+soft-ue-cli diff-uasset D:/snapshots/Actor_before.uasset D:/Project/Content/__ExternalActors__/Maps/OpenWorld/5/TQ/ABC123.uasset --sections summary,properties
 ```
 
 ### Inspect UserDefinedEnum and UserDefinedStruct assets
@@ -567,7 +596,7 @@ Developers who need the bridge set `SOFT_UE_BRIDGE=1` in their environment. Ever
 | **Unreal Engine** | 5.7 |
 | **Python** | 3.10+ |
 | **Platforms** | Windows, macOS, Linux |
-| **Build types** | Editor, Development, Shipping (cooked/packaged) |
+| **Build types** | Editor, DebugGame, Development; Shipping only if explicitly opted in |
 | **Dependencies** | `httpx >= 0.27` (sole runtime dependency); optional `mcp >= 1.2` for MCP server mode |
 
 ---
@@ -593,6 +622,8 @@ soft-ue-cli report-bug \
   --description "Detailed description"
 ```
 
+Do not include project-specific information or personal information. Replace project names, internal paths, asset names, emails, tokens, and other sensitive details with generic placeholders.
+
 Optional flags: `--steps`, `--expected`, `--actual`, `--severity critical|major|minor`, `--no-system-info`.
 
 ### Request a feature
@@ -602,6 +633,8 @@ soft-ue-cli request-feature \
   --title "Short feature summary" \
   --description "What the feature should do"
 ```
+
+Do not include project-specific information or personal information. Replace project names, internal paths, asset names, emails, tokens, and other sensitive details with generic placeholders.
 
 Optional flags: `--use-case`, `--priority enhancement|nice-to-have`.
 
@@ -638,7 +671,7 @@ Yes. soft-ue-cli is a standard Python CLI. You can use it in shell scripts, CI/C
 
 ### Does it work with packaged/cooked Unreal Engine builds?
 
-Yes. The SoftUEBridge plugin works in both the UE editor and in cooked/packaged builds (Development and Shipping configurations). This makes it useful for automated testing of packaged games.
+Yes, in Development and DebugGame packaged builds by default. The bridge module now uses Unreal's `DeveloperTool` module type, so Shipping builds exclude it unless the target explicitly enables developer tools (for example via `bBuildDeveloperTools = true`).
 
 ### What Unreal Engine versions are supported?
 
@@ -646,7 +679,7 @@ soft-ue-cli is actively developed against Unreal Engine 5.7.
 
 ### Is there any runtime performance impact?
 
-The SoftUEBridge plugin adds a lightweight HTTP server that listens on a single port. When no requests are being made, the overhead is negligible. The server processes requests on the game thread to ensure thread safety with UE APIs. For production builds where you do not want the bridge, use conditional compilation via the `SOFT_UE_BRIDGE` environment variable.
+The SoftUEBridge plugin adds a lightweight HTTP server that listens on a single port. When no requests are being made, the overhead is negligible. The server processes requests on the game thread to ensure thread safety with UE APIs. Shipping builds exclude the bridge by default; if you intentionally need it there, enable developer tools for that target.
 
 ### How do I change the default port?
 

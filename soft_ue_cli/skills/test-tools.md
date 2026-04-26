@@ -1,7 +1,7 @@
 ---
 name: test-tools
 description: Exhaustive integration test of all soft-ue-cli tools against a live UE instance. Writes a JSON report.
-version: 2.4.0
+version: 2.5.0
 ---
 
 # test-tools — Integration Test Suite
@@ -9,6 +9,8 @@ version: 2.4.0
 Runs every soft-ue-cli bridge tool against a live UE instance, collects pass/fail results per test, and writes a JSON report. No LLM in the loop — extract the script and run it.
 
 ## Modes
+
+When a new CLI tool, MCP-exposed tool, or new inspect/diff section is added, extend this skill's script so the new surface is exercised here. Offline-only tools still need smoke coverage in this suite where practical.
 
 | Mode | What it tests | Transport |
 |------|--------------|-----------|
@@ -541,6 +543,11 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
             "inspect-uasset", _inspect_uasset_path, "--sections", "all",
             check_stdout=lambda s: '"variables"' in s and '"functions"' in s and '"fidelity"' in s,
         )
+        run_cli(
+            "inspect-uasset properties",
+            "inspect-uasset", _inspect_uasset_path, "--sections", "properties",
+            check_stdout=lambda s: '"properties"' in s and '"fidelity"' in s,
+        )
     else:
         _record("inspect-uasset", "inspect-uasset", {},
                 False, 0, "skipped: could not resolve on-disk .uasset path")
@@ -612,6 +619,11 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
             "diff-uasset all",
             "diff-uasset", _inspect_snapshot_uasset, _inspect_uasset_path, "--sections", "all",
             check_stdout=lambda s: '"changes"' in s and '"summary"' in s,
+        )
+        run_cli(
+            "diff-uasset properties",
+            "diff-uasset", _inspect_snapshot_uasset, _inspect_uasset_path, "--sections", "properties",
+            check_stdout=lambda s: '"properties"' in s and '"change_count"' in s,
         )
     else:
         _record("diff-uasset", "diff-uasset", {},

@@ -1,18 +1,19 @@
 ---
 name: author-regression-test
-description: Scaffold a general-purpose committed gameplay regression test as a Python file under tests/gameplay/regression/. Use when the test does not fit a more specialised anim, parity, or invariant shape.
-version: 1.0.0
+description: Scaffold a committed C++ Automation Spec for a general gameplay regression. Use when the repro is broader than a single invariant or a pure animation-state check.
+version: 3.0.0
 ---
 
 # author-regression-test
 
-Use this skill when the user has a stable repro sequence and wants to preserve it as a committed Python gameplay test.
+Use this skill when the user has a stable repro sequence and wants to preserve it as a committed C++ gameplay regression test.
 
 ## Target shape
 
-- Output path: `tests/gameplay/regression/<slug>.py`
-- Runner: `soft-ue-cli run-python-script --script-path`
-- Style: setup, drive the world, observe, assert, exit non-zero on failure
+- Output path: `Source/<Project>Tests/Private/Regression/TEST_<Slug>.cpp`
+- Test style: `BEGIN_DEFINE_SPEC` / `Describe` / `It` with latent setup and assertions
+- Dependencies: project-native test module only
+- Exploration inputs: CLI, bridge, and Python findings from the current session
 
 ## Gather before writing
 
@@ -20,50 +21,71 @@ Use this skill when the user has a stable repro sequence and wants to preserve i
 2. Required setup: map, actor class, tags, initial properties.
 3. Input or call sequence.
 4. The observation to assert.
+5. Which signals or properties were already validated during CLI/Python exploration.
 
 Keep the file narrow. If the assertion collapses to one property value, redirect to `author-invariant-test`.
 
+## Output pattern
+
+Generate a C++ Automation Spec scaffold that includes:
+
+- includes for the relevant gameplay classes and automation headers
+- `BEGIN_DEFINE_SPEC(...)`
+- map loading or world setup in `BeforeEach`
+- latent waits or helper commands where needed
+- one focused assertion block in `It(...)`
+- minimal cleanup in `AfterEach`
+
 ## Template
 
-```python
-#!/usr/bin/env python3
-"""<short purpose>"""
+```cpp
+#include "Misc/AutomationTest.h"
+#include "Tests/AutomationCommon.h"
 
-from __future__ import annotations
+BEGIN_DEFINE_SPEC(F<SpecName>,
+    "<Project>.<Category>.<SpecName>",
+    EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+END_DEFINE_SPEC(F<SpecName>)
 
-from soft_ue_bridge import call
+void F<SpecName>::Define()
+{
+    Describe("<scenario>", [this]()
+    {
+        BeforeEach([this]()
+        {
+            AutomationOpenMap(TEXT("<MapPath>"));
+            ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(1.0f));
+        });
 
+        It("<expected behavior>", [this]()
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this]() -> bool
+            {
+                // Apply the setup or repro steps discovered during exploration.
+                return true;
+            }));
 
-def main() -> int:
-    # Setup
-    call("pie-session", {"action": "start", "map": "<optional-map>"})
-    actor = call("spawn-actor", {"actor_class": "<ActorClass>", "label": "<Label>"})
-    call("set-property", {"actor_name": "<Label>", "property_name": "<Prop>", "value": "<Value>"})
+            ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(<WaitSeconds>));
 
-    # Drive repro
-    call("trigger-input", {"action": "key", "key": "<Key>"})
-    call("pie-tick", {"frames": 30})
-
-    # Observe
-    value = call("get-property", {"actor_name": "<Label>", "property_name": "<ObservedProp>"})
-
-    # Assert
-    if "<expected-fragment>" not in str(value):
-        raise AssertionError(f"expected <expected-fragment>, got {value}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+            ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this]() -> bool
+            {
+                // Read the key signal found during exploration and assert it.
+                TestTrue(TEXT("<assertion>"), true);
+                return true;
+            }));
+        });
+    });
+}
 ```
 
-## Authoring rules
+## Rules
 
-- Prefer bridge primitives over manual editor steps.
-- Prefer stable actor labels or tags so later calls remain deterministic.
-- Use `pie-tick` instead of real-time sleeps.
-- Keep assertions concrete and readable.
+- Treat CLI/Python work as exploration input, not the committed artifact.
+- Do not emit Python test files as the main result.
+- Prefer explicit latent commands over vague comments about waiting.
+- Carry over the exact runtime signal learned during exploration into the C++ assertion.
+- If the exploration relied on bridge-only helper behavior, translate the behavior into project-native C++ calls rather than keeping the bridge dependency.
 
 ## After writing
 
-Tell the user where the file was written and offer to run it via `run-test`.
+Tell the user where the `.cpp` file was written and show the Automation command needed to build and run that test.

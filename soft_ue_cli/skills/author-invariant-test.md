@@ -1,7 +1,7 @@
 ---
 name: author-invariant-test
-description: Scaffold a single-property invariant test as a Python file under tests/gameplay/invariants/. Use when the whole assertion is one property value after a specific setup.
-version: 1.0.0
+description: Scaffold a committed C++ Automation Spec for a single-property invariant after setup.
+version: 3.0.0
 ---
 
 # author-invariant-test
@@ -10,8 +10,10 @@ Use this skill when the regression can be pinned by reading one property after s
 
 ## Target shape
 
-- Output path: `tests/gameplay/invariants/<slug>.py`
+- Output path: `Source/<Project>Tests/Private/Invariants/TEST_<Slug>.cpp`
 - Pattern: setup, read one property, assert one expected value
+- Final artifact: C++ Automation Spec
+- Exploration source: the property and expected value already identified during CLI/Python investigation
 
 ## Gather before writing
 
@@ -19,43 +21,50 @@ Use this skill when the regression can be pinned by reading one property after s
 2. Setup steps.
 3. Property path.
 4. Expected value.
+5. How the current session verified that this property is the right signal.
 
 If the setup or observation grows beyond a simple single-property check, redirect to `author-regression-test`.
 
+## Output pattern
+
+Generate a C++ Automation Spec scaffold that:
+
+- sets up the world or actor
+- reads the property directly in C++
+- asserts the expected value with a clear test message
+
 ## Template
 
-```python
-#!/usr/bin/env python3
-"""<short purpose>"""
+```cpp
+#include "Misc/AutomationTest.h"
+#include "Tests/AutomationCommon.h"
 
-from __future__ import annotations
+BEGIN_DEFINE_SPEC(F<SpecName>,
+    "<Project>.Invariants.<SpecName>",
+    EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+END_DEFINE_SPEC(F<SpecName>)
 
-from soft_ue_bridge import call
-
-
-def main() -> int:
-    actor_name = "<ActorLabel>"
-
-    call("pie-session", {"action": "start", "map": "<optional-map>"})
-    call("spawn-actor", {"actor_class": "<ActorClass>", "label": actor_name})
-    call("set-property", {"actor_name": actor_name, "property_name": "<Prop>", "value": "<SetupValue>"})
-
-    result = call("get-property", {"actor_name": actor_name, "property_name": "<ObservedProp>"})
-    if str(result) != "<ExpectedValue>":
-        raise AssertionError(f"expected <ExpectedValue>, got {result}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+void F<SpecName>::Define()
+{
+    Describe("<scenario>", [this]()
+    {
+        It("preserves the invariant", [this]()
+        {
+            // Apply setup.
+            // Read the target property.
+            TestEqual(TEXT("<property assertion>"), <ActualValue>, <ExpectedValue>);
+        });
+    });
+}
 ```
 
 ## Rules
 
 - Keep it to one observed property.
 - Prefer exact expected values unless the property is inherently approximate.
-- Use deterministic setup and avoid unnecessary world ticking.
+- Use the property signal already validated during exploration instead of re-discovering it in the generated scaffold.
+- Do not emit a Python test as the main result.
 
 ## After writing
 
-Tell the user the new file path and offer to run it via `run-test`.
+Tell the user the new `.cpp` path and show the Automation command needed to run the generated invariant test.

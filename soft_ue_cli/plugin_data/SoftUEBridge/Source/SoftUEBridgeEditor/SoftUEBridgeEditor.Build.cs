@@ -64,6 +64,7 @@ public class SoftUEBridgeEditor : ModuleRules
 
 			// Input
 			"InputCore",
+			"EnhancedInput",
 
 			// Project Settings
 			"GameplayTags",

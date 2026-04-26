@@ -1,4 +1,4 @@
-"""Offline .uasset parser for Unreal Engine Blueprint files."""
+"""Offline .uasset parser for Unreal Engine asset files."""
 
 from __future__ import annotations
 
@@ -12,18 +12,19 @@ from .blueprint import (
     extract_functions,
     extract_variables,
 )
+from .external_actor import extract_external_actor_summary
 from .package import UAssetPackage
 from .reader import UAssetReader
 from .types import UAssetError
 
-VALID_SECTIONS = frozenset({"summary", "variables", "functions", "components", "events", "all"})
+VALID_SECTIONS = frozenset({"summary", "properties", "variables", "functions", "components", "events", "all"})
 
 
 def inspect_uasset(
     path: str | Path,
     sections: Sequence[str] | str = ("summary",),
 ) -> dict:
-    """Parse a local .uasset file and return structured Blueprint metadata."""
+    """Parse a local .uasset file and return structured asset metadata."""
     asset_path = Path(path)
     if not asset_path.exists():
         raise FileNotFoundError(f"File not found: {asset_path}")
@@ -67,12 +68,15 @@ def inspect_uasset(
             is_blueprint = False
             result.update(_extract_generic_summary(package))
 
+        properties_section = None
         variables_section = None
         functions_section = None
         components_section = None
         events_section = None
 
         if is_blueprint:
+            if want_all or "summary" in requested or "properties" in requested:
+                properties_section = {"count": 0, "items": [], "fidelity": "unavailable"}
             if want_all or "summary" in requested or "variables" in requested:
                 variables_section = extract_variables(package, reader, offset_adjust=offset_adjust)
             if want_all or "summary" in requested or "functions" in requested:
@@ -81,8 +85,18 @@ def inspect_uasset(
                 components_section = extract_components(package, reader, offset_adjust=offset_adjust)
             if want_all or "summary" in requested or "events" in requested:
                 events_section = extract_events(package)
+        else:
+            external_actor = extract_external_actor_summary(
+                package,
+                reader,
+                asset_path,
+                offset_adjust=offset_adjust,
+            )
+            properties_section = external_actor.pop("properties", None)
+            result.update(external_actor)
 
         if want_all or "summary" in requested:
+            result["property_count"] = 0 if properties_section is None else properties_section.get("count", 0)
             result["variable_count"] = 0 if variables_section is None else variables_section.get("count", 0)
             result["function_count"] = 0 if functions_section is None else functions_section.get("count", 0)
             result["component_count"] = 0 if components_section is None else components_section.get("count", 0)
@@ -92,6 +106,8 @@ def inspect_uasset(
                 else events_section.get("event_count", 0) + events_section.get("custom_event_count", 0)
             )
 
+        if want_all or "properties" in requested:
+            result["properties"] = properties_section or {"count": 0, "items": [], "fidelity": "unavailable"}
         if want_all or "variables" in requested:
             result["variables"] = variables_section or {"count": 0, "items": [], "fidelity": "unavailable"}
         if want_all or "functions" in requested:
@@ -130,7 +146,7 @@ def diff_uasset(
     inspect_sections = sorted((requested - {"all"}) | {"summary"})
     if "all" in requested:
         inspect_sections = ["all"]
-        requested = {"summary", "variables", "functions", "components", "events"}
+        requested = {"summary", "properties", "variables", "functions", "components", "events"}
 
     left = inspect_uasset(left_path, sections=inspect_sections)
     right = inspect_uasset(right_path, sections=inspect_sections)
@@ -143,7 +159,7 @@ def diff_uasset(
         changes["summary"] = summary
         total_changes += summary["change_count"]
 
-    for section in ("variables", "functions", "components"):
+    for section in ("properties", "variables", "functions", "components"):
         if section in requested:
             payload = _diff_named_items(left.get(section), right.get(section))
             changes[section] = payload
@@ -235,6 +251,17 @@ def _diff_summary(left: dict, right: dict) -> dict:
         "parent_class",
         "parent_class_path",
         "blueprint_type",
+        "is_external_actor",
+        "actor_label",
+        "actor_guid",
+        "actor_class_path",
+        "actor_outer_path",
+        "actor_folder_path",
+        "actor_runtime_grid",
+        "actor_tags",
+        "actor_data_layers",
+        "actor_spatially_loaded",
+        "property_count",
         "variable_count",
         "function_count",
         "component_count",

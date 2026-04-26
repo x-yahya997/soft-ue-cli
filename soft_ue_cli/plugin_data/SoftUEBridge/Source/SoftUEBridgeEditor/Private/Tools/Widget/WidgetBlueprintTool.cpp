@@ -11,7 +11,15 @@
 #include "Components/NamedSlot.h"
 #include "Binding/DynamicPropertyPath.h"
 #include "Animation/WidgetAnimation.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "UObject/SoftObjectPath.h"
+#include "UObject/SoftObjectPtr.h"
+#include "UObject/UnrealType.h"
 #include "MovieScene.h"
+#include "InputMappingContext.h"
+#include "InputAction.h"
+#include "InputModifiers.h"
+#include "InputTriggers.h"
 #include "SoftUEBridgeEditorModule.h"
 
 TMap<FString, FBridgeSchemaProperty> UWidgetBlueprintTool::GetInputSchema() const
@@ -167,6 +175,19 @@ FBridgeToolResult UWidgetBlueprintTool::Execute(
 	if (AnimationsArray.Num() > 0)
 	{
 		Result->SetArrayField(TEXT("animations"), AnimationsArray);
+	}
+
+	// Input assets referenced by the widget blueprint
+	TArray<TSharedPtr<FJsonValue>> InputActionsArray;
+	TArray<TSharedPtr<FJsonValue>> InputContextsArray;
+	ExtractInputReferences(WidgetBP, InputActionsArray, InputContextsArray);
+	if (InputActionsArray.Num() > 0)
+	{
+		Result->SetArrayField(TEXT("input_actions"), InputActionsArray);
+	}
+	if (InputContextsArray.Num() > 0)
+	{
+		Result->SetArrayField(TEXT("input_mapping_contexts"), InputContextsArray);
 	}
 
 	return FBridgeToolResult::Json(Result);
@@ -432,6 +453,213 @@ TArray<TSharedPtr<FJsonValue>> UWidgetBlueprintTool::ExtractAnimations(UWidgetBl
 	}
 
 	return AnimationsArray;
+}
+
+void UWidgetBlueprintTool::ExtractInputReferences(
+	UWidgetBlueprint* WidgetBP,
+	TArray<TSharedPtr<FJsonValue>>& OutActions,
+	TArray<TSharedPtr<FJsonValue>>& OutContexts)
+{
+	if (!WidgetBP)
+	{
+		return;
+	}
+
+	TMap<FString, UInputAction*> InputActions;
+	TMap<FString, UInputMappingContext*> InputContexts;
+	TSet<FSoftObjectPath> SeenObjects;
+
+	CollectInputAssetsRecursive(WidgetBP, SeenObjects, InputActions, InputContexts);
+
+	if (WidgetBP->GeneratedClass)
+	{
+		if (UObject* CDO = WidgetBP->GeneratedClass->GetDefaultObject())
+		{
+			CollectInputAssetsRecursive(CDO, SeenObjects, InputActions, InputContexts);
+		}
+	}
+
+	if (WidgetBP->WidgetTree)
+	{
+		TArray<UWidget*> AllWidgets;
+		WidgetBP->WidgetTree->GetAllWidgets(AllWidgets);
+		for (UWidget* Widget : AllWidgets)
+		{
+			CollectInputAssetsRecursive(Widget, SeenObjects, InputActions, InputContexts);
+		}
+	}
+
+	for (const TPair<FString, UInputAction*>& Pair : InputActions)
+	{
+		if (!Pair.Value)
+		{
+			continue;
+		}
+
+		TSharedPtr<FJsonObject> ActionObj = MakeShareable(new FJsonObject);
+		ActionObj->SetStringField(TEXT("name"), Pair.Value->GetName());
+		ActionObj->SetStringField(TEXT("path"), Pair.Key);
+		OutActions.Add(MakeShareable(new FJsonValueObject(ActionObj)));
+	}
+
+	for (const TPair<FString, UInputMappingContext*>& Pair : InputContexts)
+	{
+		if (!Pair.Value)
+		{
+			continue;
+		}
+
+		TSharedPtr<FJsonObject> ContextObj = MakeShareable(new FJsonObject);
+		ContextObj->SetStringField(TEXT("name"), Pair.Value->GetName());
+		ContextObj->SetStringField(TEXT("path"), Pair.Key);
+
+		TArray<TSharedPtr<FJsonValue>> MappingsArray;
+		for (const FEnhancedActionKeyMapping& Mapping : Pair.Value->GetMappings())
+		{
+			TSharedPtr<FJsonObject> MappingObj = MakeShareable(new FJsonObject);
+			if (Mapping.Action)
+			{
+				MappingObj->SetStringField(TEXT("action_name"), Mapping.Action->GetName());
+				MappingObj->SetStringField(TEXT("action_path"), Mapping.Action->GetPathName());
+			}
+
+			MappingObj->SetStringField(TEXT("key"), Mapping.Key.GetFName().ToString());
+			MappingObj->SetStringField(TEXT("key_display_name"), Mapping.Key.GetDisplayName().ToString());
+
+			TArray<TSharedPtr<FJsonValue>> ModifiersArray;
+			for (const TObjectPtr<UInputModifier>& Modifier : Mapping.Modifiers)
+			{
+				if (Modifier)
+				{
+					ModifiersArray.Add(MakeShareable(new FJsonValueString(Modifier->GetClass()->GetName())));
+				}
+			}
+			if (ModifiersArray.Num() > 0)
+			{
+				MappingObj->SetArrayField(TEXT("modifiers"), ModifiersArray);
+			}
+
+			TArray<TSharedPtr<FJsonValue>> TriggersArray;
+			for (const TObjectPtr<UInputTrigger>& Trigger : Mapping.Triggers)
+			{
+				if (Trigger)
+				{
+					TriggersArray.Add(MakeShareable(new FJsonValueString(Trigger->GetClass()->GetName())));
+				}
+			}
+			if (TriggersArray.Num() > 0)
+			{
+				MappingObj->SetArrayField(TEXT("triggers"), TriggersArray);
+			}
+
+			MappingsArray.Add(MakeShareable(new FJsonValueObject(MappingObj)));
+		}
+
+		if (MappingsArray.Num() > 0)
+		{
+			ContextObj->SetArrayField(TEXT("mappings"), MappingsArray);
+		}
+
+		OutContexts.Add(MakeShareable(new FJsonValueObject(ContextObj)));
+	}
+}
+
+void UWidgetBlueprintTool::CollectInputAssetsRecursive(
+	UObject* SourceObject,
+	TSet<FSoftObjectPath>& SeenObjects,
+	TMap<FString, UInputAction*>& OutActions,
+	TMap<FString, UInputMappingContext*>& OutContexts)
+{
+	if (!SourceObject)
+	{
+		return;
+	}
+
+	const FSoftObjectPath ObjectPath(SourceObject);
+	if (ObjectPath.IsValid())
+	{
+		if (SeenObjects.Contains(ObjectPath))
+		{
+			return;
+		}
+		SeenObjects.Add(ObjectPath);
+	}
+
+	TFunction<void(UObject*)> RegisterObject = [&](UObject* Candidate)
+	{
+		if (!Candidate)
+		{
+			return;
+		}
+
+		if (UInputAction* InputAction = Cast<UInputAction>(Candidate))
+		{
+			OutActions.FindOrAdd(InputAction->GetPathName()) = InputAction;
+			return;
+		}
+
+		if (UInputMappingContext* InputContext = Cast<UInputMappingContext>(Candidate))
+		{
+			OutContexts.FindOrAdd(InputContext->GetPathName()) = InputContext;
+			return;
+		}
+
+		if (Candidate != SourceObject)
+		{
+			CollectInputAssetsRecursive(Candidate, SeenObjects, OutActions, OutContexts);
+		}
+	};
+
+	TFunction<void(const FProperty*, const void*)> ScanValue;
+	ScanValue = [&](const FProperty* Property, const void* ValuePtr)
+	{
+		if (!Property || !ValuePtr)
+		{
+			return;
+		}
+
+		if (const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Property))
+		{
+			RegisterObject(ObjectProperty->GetObjectPropertyValue(ValuePtr));
+			return;
+		}
+
+		if (const FSoftObjectProperty* SoftObjectProperty = CastField<FSoftObjectProperty>(Property))
+		{
+			const FSoftObjectPtr SoftObject = SoftObjectProperty->GetPropertyValue(ValuePtr);
+			RegisterObject(Cast<UObject>(SoftObject.Get()));
+			if (!SoftObject.IsNull())
+			{
+				RegisterObject(Cast<UObject>(SoftObject.ToSoftObjectPath().TryLoad()));
+			}
+			return;
+		}
+
+		if (const FStructProperty* StructProperty = CastField<FStructProperty>(Property))
+		{
+			for (TFieldIterator<FProperty> It(StructProperty->Struct, EFieldIterationFlags::IncludeSuper); It; ++It)
+			{
+				const FProperty* InnerProperty = *It;
+				ScanValue(InnerProperty, InnerProperty->ContainerPtrToValuePtr<void>(ValuePtr));
+			}
+			return;
+		}
+
+		if (const FArrayProperty* ArrayProperty = CastField<FArrayProperty>(Property))
+		{
+			FScriptArrayHelper Helper(ArrayProperty, ValuePtr);
+			for (int32 Index = 0; Index < Helper.Num(); ++Index)
+			{
+				ScanValue(ArrayProperty->Inner, Helper.GetRawPtr(Index));
+			}
+		}
+	};
+
+	for (TFieldIterator<FProperty> It(SourceObject->GetClass(), EFieldIterationFlags::IncludeSuper); It; ++It)
+	{
+		const FProperty* Property = *It;
+		ScanValue(Property, Property->ContainerPtrToValuePtr<void>(SourceObject));
+	}
 }
 
 void UWidgetBlueprintTool::CollectWidgetNames(UWidget* Widget, TArray<FString>& OutNames)

@@ -2,6 +2,23 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.24.0] - 2026-04-14
+
+### Added
+- `inspect-uasset --sections properties` and `diff-uasset --sections properties` now expose and diff External Actor tagged UPROPERTY payloads offline, including common scalar, object, array, and struct values when parsable
+- README architecture and testing docs now use text diagrams and explicitly show the split between bridge-backed exploration flows and offline/local capabilities
+
+### Changed
+- test authoring skills now target committed C++ Automation Spec outputs; CLI + bridge + Python workflows are documented as exploration inputs rather than the final regression artifact
+- `run-test` skill has been removed; execution guidance now belongs with the generated C++ test workflow rather than a generic skill
+
+### Fixed
+- `run-python-script --script-path` now resolves the file locally before dispatch, avoiding bridge-side path misinterpretation
+- `run-python-script` now supports explicit world targeting and injects world helpers for editor/PIE/game execution
+- `inspect-widget-blueprint` now surfaces referenced Input Mapping Context bindings and resolved keys for Input Action references
+- SoftUEBridge now defaults to Unreal's `DeveloperTool` module type so Shipping builds exclude it by default
+- `query-material` no longer risks an unbounded `GetInput()` iteration when inspecting material graphs
+
 ## [1.23.0] - 2026-04-13
 
 ### Added
@@ -9,12 +26,15 @@ All notable changes to soft-ue-cli will be documented in this file.
 - `rewind-list-tracks`, `rewind-overview`, `rewind-snapshot` commands for LLM-driven animation debugging — list recorded actors, get track-level summaries, and drill down to animation state at a specific time or frame
 - `rewind-save` command to persist in-memory recordings to `.utrace` files
 - `inspect-uasset` / `diff-uasset` now support non-Blueprint assets (AnimSequence, PoseSearchDatabase, DataTable, etc.) via a generic export/import summary fallback
+- `inspect-uasset` now extracts actor label/class/path, GUID, folder, runtime grid, tags, and data-layer hints from External Actor `.uasset` packages for offline history review
+- `inspect-uasset --sections properties` and `diff-uasset --sections properties` now expose and diff External Actor tagged UPROPERTY payloads offline, including common scalar, object, array, and struct values when parsable
 
 ### Fixed
 - `pie-tick` no longer crashes with a re-entrant TaskGraph assertion when UMassEntityEditorSubsystem (or any `FTickableEditorObject` that waits on game-thread tasks) is active. World ticks are now deferred through FTSTicker and driven by the engine's normal Slate tick loop instead of running directly inside the bridge server's AsyncTask handler.
 
 ### Notes
 - Rewind Debugger commands require the **Animation Insights (GameplayInsights)** plugin to be enabled in Edit > Plugins. Error messages guide users to enable it when not active.
+- README architecture docs now use text diagrams and explicitly show which commands bypass the bridge and operate on local files offline.
 
 ## [1.22.0] - 2026-04-12
 

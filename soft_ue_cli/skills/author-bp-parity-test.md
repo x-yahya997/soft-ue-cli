@@ -1,20 +1,20 @@
 ---
 name: author-bp-parity-test
-description: Scaffold a Blueprint-to-C++ parity test under tests/gameplay/parity/ using a committed input sweep and golden outputs. Use when a Blueprint implementation is the source of truth and the C++ port must match it.
-version: 1.0.0
+description: Scaffold a committed C++ Automation Spec for Blueprint-to-C++ parity checks using captured inputs and expected outputs.
+version: 3.0.0
 ---
 
 # author-bp-parity-test
 
-Use this skill when the user wants to prove a C++ port matches the Blueprint behaviour for the same inputs.
+Use this skill when the user wants to prove a C++ port matches Blueprint behavior for the same inputs.
 
 ## Target shape
 
 - Output files:
-  - `tests/gameplay/parity/<slug>.py`
-  - `tests/gameplay/parity/<slug>.inputs.json`
-  - `tests/gameplay/parity/<slug>.golden.json`
-- Capture golden data from the Blueprint first, then replay against the C++ path.
+  - `Source/<Project>Tests/Private/Parity/TEST_<Slug>.cpp`
+  - optional committed fixtures such as `<slug>.inputs.json` and `<slug>.golden.json`
+- Final artifact: C++ Automation Spec
+- Exploration source: CLI/Python sessions used to identify call shapes, inputs, and expected outputs
 
 ## Gather before writing
 
@@ -23,64 +23,62 @@ Use this skill when the user wants to prove a C++ port matches the Blueprint beh
 3. Input sweep rows.
 4. C++ target path or equivalent callable.
 5. Float tolerance, if needed.
+6. How the current session validated the parity signal.
 
-## Golden capture pattern
+## Golden capture
 
-Use the CLI batch sweep mode to capture expected outputs:
+Capture or confirm the golden data during exploration first. CLI capture is acceptable here as exploration tooling when it is the fastest way to confirm the expected outputs.
 
-```bash
-soft-ue-cli call-function \
-  --class-path /Game/Blueprints/BP_Example \
-  --function-name EvaluateFoo \
-  --use-cdo \
-  --batch-json tests/gameplay/parity/foo.inputs.json \
-  --output tests/gameplay/parity/foo.golden.json
-```
+Possible sources:
 
-## Test file pattern
+- ad hoc CLI capture during investigation
+- a temporary Python exploration script
+- pre-existing committed fixture data
 
-```python
-#!/usr/bin/env python3
-"""<short purpose>"""
+The committed output from this skill is still a C++ Automation Spec, not a Python parity test.
 
-from __future__ import annotations
+## Output pattern
 
-import json
-from pathlib import Path
+Generate a C++ Automation Spec scaffold that:
 
-from soft_ue_bridge import call
+- loads or embeds the input rows
+- loads or embeds the expected outputs
+- invokes the C++ target for each row
+- compares actual vs expected, with tolerance handling if needed
+- reports row-level failures clearly
 
+## Template
 
-def main() -> int:
-    root = Path(__file__).resolve().parent
-    inputs = json.loads((root / "<slug>.inputs.json").read_text(encoding="utf-8"))
-    golden = json.loads((root / "<slug>.golden.json").read_text(encoding="utf-8"))
+```cpp
+#include "Misc/AutomationTest.h"
 
-    actual = call(
-        "call-function",
+BEGIN_DEFINE_SPEC(F<SpecName>,
+    "<Project>.Parity.<SpecName>",
+    EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+END_DEFINE_SPEC(F<SpecName>)
+
+void F<SpecName>::Define()
+{
+    Describe("<parity scenario>", [this]()
+    {
+        It("matches the expected outputs", [this]()
         {
-            "class_path": "<C++ClassPath>",
-            "function_name": "<FunctionName>",
-            "use_cdo": True,
-            "batch_json": str(root / "<slug>.inputs.json"),
-        },
-    )
-
-    if actual != golden:
-        raise AssertionError("parity mismatch between golden and C++ output")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+            // Load fixture data or define it inline.
+            // Invoke the C++ target for each row.
+            // Compare results against the captured golden values.
+            TestTrue(TEXT("<parity assertion>"), true);
+        });
+    });
+}
 ```
 
 ## Rules
 
-- Do not capture the golden from a suspect Blueprint. If the BP might already be wrong, debug that first.
-- Commit inputs, golden, and test file together.
-- If exact equality is too strict, add a small float tolerance comparison instead of rewriting the golden.
+- Do not emit a Python parity test as the main result.
+- Keep the committed artifact in C++ even if the golden was discovered with CLI/Python tooling.
+- If exact equality is too strict, make the tolerance explicit in the generated scaffold.
+- Make fixture ownership clear: what is committed, what was just exploratory.
 
 ## After writing
 
-Tell the user which three files were created and offer to run the Python test via `run-test`.
+Tell the user which committed files were created and show the Automation command needed to run the generated parity test.

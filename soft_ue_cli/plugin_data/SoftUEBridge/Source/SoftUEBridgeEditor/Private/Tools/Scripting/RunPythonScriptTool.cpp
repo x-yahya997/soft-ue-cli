@@ -29,7 +29,9 @@ public:
 
 FString URunPythonScriptTool::GetToolDescription() const
 {
-	return TEXT("Execute a Python script in Unreal Editor's Python environment. Requires PythonScriptPlugin to be enabled.");
+	return TEXT("Execute a Python script in Unreal Editor's Python environment. "
+		"Requires PythonScriptPlugin to be enabled. Supports inline code, script files, "
+		"arguments, extra sys.path entries, and optional PIE/editor world helpers.");
 }
 
 TMap<FString, FBridgeSchemaProperty> URunPythonScriptTool::GetInputSchema() const
@@ -53,6 +55,12 @@ TMap<FString, FBridgeSchemaProperty> URunPythonScriptTool::GetInputSchema() cons
 	PythonPaths.Description = TEXT("Additional directories to add to Python sys.path for module imports (array of strings)");
 	PythonPaths.bRequired = false;
 	Schema.Add(TEXT("python_paths"), PythonPaths);
+
+	FBridgeSchemaProperty World;
+	World.Type = TEXT("string");
+	World.Description = TEXT("Optional world helper to expose during execution: 'editor', 'pie', or 'game' (default: editor)");
+	World.bRequired = false;
+	Schema.Add(TEXT("world"), World);
 
 	FBridgeSchemaProperty Arguments;
 	Arguments.Type = TEXT("object");
@@ -105,6 +113,12 @@ FBridgeToolResult URunPythonScriptTool::Execute(
 		UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("run-python-script: Loaded script from %s"), *ScriptPath);
 	}
 
+	const FString WorldType = GetStringArgOrDefault(Arguments, TEXT("world"), TEXT("editor")).ToLower();
+	if (!WorldType.IsEmpty() && WorldType != TEXT("editor") && WorldType != TEXT("pie") && WorldType != TEXT("game"))
+	{
+		return FBridgeToolResult::Error(TEXT("Invalid world value. Use 'editor', 'pie', or 'game'."));
+	}
+
 	// Get additional Python paths if provided
 	TArray<FString> PythonPaths;
 	if (Arguments->HasField(TEXT("python_paths")))
@@ -125,7 +139,7 @@ FBridgeToolResult URunPythonScriptTool::Execute(
 	}
 
 	// Build Python command with arguments and paths if provided
-	FString PythonCommand = BuildPythonCommand(Script, Arguments, PythonPaths);
+	FString PythonCommand = BuildPythonCommand(Script, Arguments, PythonPaths, WorldType);
 
 	UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("run-python-script: Executing Python code..."));
 
@@ -263,7 +277,11 @@ bool URunPythonScriptTool::ReadScriptFile(const FString& ScriptPath, FString& Ou
 	return true;
 }
 
-FString URunPythonScriptTool::BuildPythonCommand(const FString& Script, const TSharedPtr<FJsonObject>& Arguments, const TArray<FString>& PythonPaths)
+FString URunPythonScriptTool::BuildPythonCommand(
+	const FString& Script,
+	const TSharedPtr<FJsonObject>& Arguments,
+	const TArray<FString>& PythonPaths,
+	const FString& WorldType)
 {
 	FString Preamble;
 	Preamble += TEXT("import sys as _sub_sys\n");
@@ -287,6 +305,30 @@ FString URunPythonScriptTool::BuildPythonCommand(const FString& Script, const TS
 	Preamble += TEXT("    _sub_mod.call = _sub_call\n");
 	Preamble += TEXT("    _sub_mod.BridgeCallError = _SubBridgeCallError\n");
 	Preamble += TEXT("    _sub_sys.modules['soft_ue_bridge'] = _sub_mod\n");
+	Preamble += TEXT("\n");
+	Preamble += FString::Printf(TEXT("_mcp_world_type = r'%s'\n"), *WorldType);
+	Preamble += TEXT("def _sub_get_world():\n");
+	Preamble += TEXT("    if _mcp_world_type == 'pie':\n");
+	Preamble += TEXT("        _editor = _sub_unreal.get_editor_subsystem(_sub_unreal.UnrealEditorSubsystem)\n");
+	Preamble += TEXT("        if _editor:\n");
+	Preamble += TEXT("            _world = _editor.get_game_world()\n");
+	Preamble += TEXT("            if _world:\n");
+	Preamble += TEXT("                return _world\n");
+	Preamble += TEXT("        raise RuntimeError('PIE world not found. Start PIE or omit --world pie.')\n");
+	Preamble += TEXT("    if _mcp_world_type == 'game':\n");
+	Preamble += TEXT("        _editor = _sub_unreal.get_editor_subsystem(_sub_unreal.UnrealEditorSubsystem)\n");
+	Preamble += TEXT("        if _editor:\n");
+	Preamble += TEXT("            _world = _editor.get_game_world()\n");
+	Preamble += TEXT("            if _world:\n");
+	Preamble += TEXT("                return _world\n");
+	Preamble += TEXT("        return _sub_unreal.EditorLevelLibrary.get_editor_world()\n");
+	Preamble += TEXT("    return _sub_unreal.EditorLevelLibrary.get_editor_world()\n");
+	Preamble += TEXT("if not hasattr(_sub_unreal, 'get_mcp_world'):\n");
+	Preamble += TEXT("    _sub_unreal.get_mcp_world = _sub_get_world\n");
+	Preamble += TEXT("if 'soft_ue_bridge' in _sub_sys.modules and not hasattr(_sub_sys.modules['soft_ue_bridge'], 'get_world'):\n");
+	Preamble += TEXT("    _sub_sys.modules['soft_ue_bridge'].get_world = _sub_get_world\n");
+	Preamble += TEXT("_mcp_world = _sub_get_world()\n");
+	Preamble += TEXT("world = _mcp_world\n");
 	Preamble += TEXT("\n");
 
 	// Add Python paths to sys.path if provided

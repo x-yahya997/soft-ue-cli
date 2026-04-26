@@ -31,6 +31,9 @@ class UAssetPackage:
             return self.names[index].name
         return f"<invalid_name_{index}>"
 
+    def resolve_name_ref(self, value: int) -> str:
+        return self.get_name(_name_ref_to_index(value, len(self.names)))
+
     def resolve_object_name(self, index: int) -> str:
         if index < 0:
             actual = -index - 1
@@ -73,6 +76,24 @@ class UAssetPackage:
         if entry.object_name.startswith("/"):
             return entry.object_name
         return entry.object_name
+
+    def resolve_object_path(self, index: int) -> str:
+        if index < 0:
+            return self.resolve_import_object_path(index)
+        if index > 0:
+            actual = index - 1
+            if 0 <= actual < len(self.exports):
+                entry = self.exports[actual]
+                outer_path = self._resolve_outer_path(entry.outer_index)
+                if outer_path:
+                    return f"{outer_path}.{entry.object_name}"
+                return entry.object_name
+        return f"<unresolved_{index}>"
+
+    def resolve_class_path(self, index: int) -> str:
+        if index == 0:
+            return ""
+        return self.resolve_object_path(index)
 
     def _resolve_outer_path(self, index: int) -> str:
         if index == 0:

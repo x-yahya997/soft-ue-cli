@@ -452,8 +452,20 @@ def _print_inspect_table(data: dict) -> None:
     print(f"  Class:     {data.get('asset_class', '?')}")
     print(f"  Parent:    {data.get('parent_class', '?')}")
     print(f"  Type:      {data.get('blueprint_type', '?')}")
+    if data.get("is_external_actor"):
+        print(f"  Label:     {data.get('actor_label', '') or data.get('name', 'Unknown')}")
+        print(f"  GUID:      {data.get('actor_guid', '')}")
+        print(f"  ClassPath: {data.get('actor_class_path', '')}")
+        print(f"  Outer:     {data.get('actor_outer_path', '')}")
+        print(f"  Folder:    {data.get('actor_folder_path', '')}")
+        print(f"  Grid:      {data.get('actor_runtime_grid', '')}")
+        print(f"  Spatial:   {data.get('actor_spatially_loaded', '')}")
+        if data.get("actor_tags"):
+            print(f"  Tags:      {', '.join(data.get('actor_tags', []))}")
+        if data.get("actor_data_layers"):
+            print(f"  Layers:    {', '.join(data.get('actor_data_layers', []))}")
 
-    for section in ("variables", "functions", "components"):
+    for section in ("properties", "variables", "functions", "components"):
         if section not in data:
             continue
         payload = data[section]
@@ -463,6 +475,8 @@ def _print_inspect_table(data: dict) -> None:
             line = f"    - {item.get('name', '?')}"
             if extra:
                 line += f" ({extra})"
+            if section == "properties" and "value" in item:
+                line += f": {item.get('value')}"
             print(line)
 
     if "events" in data:
@@ -488,7 +502,7 @@ def _print_uasset_diff_table(data: dict) -> None:
         for field, payload in summary.get("modified", {}).items():
             print(f"    - {field}: {payload.get('old')} -> {payload.get('new')}")
 
-    for section in ("variables", "functions", "components"):
+    for section in ("properties", "variables", "functions", "components"):
         if section not in changes:
             continue
         payload = changes[section]
@@ -847,12 +861,18 @@ def cmd_run_python_script(args: argparse.Namespace) -> None:
         if args.script:
             arguments["script"] = args.script
         if args.script_path:
-            arguments["script_path"] = args.script_path
+            script_path = Path(args.script_path).expanduser().resolve()
+            if not script_path.exists():
+                print(f"error: file not found: {args.script_path}", file=sys.stderr)
+                sys.exit(1)
+            arguments["script"] = script_path.read_text(encoding="utf-8")
         if not arguments:
             print("error: provide --name, --script, or --script-path", file=sys.stderr)
             sys.exit(1)
     if args.python_paths:
         arguments["python_paths"] = args.python_paths
+    if args.world:
+        arguments["world"] = args.world
     if args.arguments:
         arguments["arguments"] = _parse_json_arg(args.arguments, "--arguments")
     _print_json(_run_tool("run-python-script", arguments))
@@ -1203,6 +1223,13 @@ def _gather_system_info() -> str:
         f"- OS: {platform.platform()}\n"
         f"- Bridge: {bridge}"
     )
+
+
+PRIVACY_GUIDANCE = (
+    "Do not include project-specific information or personal information. "
+    "Replace project names, internal paths, asset names, emails, tokens, "
+    "and other sensitive details with generic placeholders."
+)
 
 
 def cmd_report_bug(args: argparse.Namespace) -> None:
@@ -2828,7 +2855,8 @@ def build_parser() -> argparse.ArgumentParser:
             "EXAMPLES:\n"
             '  soft-ue-cli run-python-script --script "import unreal; print(unreal.SystemLibrary.get_engine_version())"\n'
             "  soft-ue-cli run-python-script --script-path /path/to/my_script.py\n"
-            "  soft-ue-cli run-python-script --script-path my_script.py --arguments '{\"count\": 5}'"
+            "  soft-ue-cli run-python-script --script-path my_script.py --arguments '{\"count\": 5}'\n"
+            "  soft-ue-cli run-python-script --script-path inspect_runtime.py --world pie"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -2836,6 +2864,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_rps.add_argument("--script", metavar="CODE", help="Inline Python code to execute")
     p_rps.add_argument("--script-path", metavar="PATH", help="Path to a Python script file")
     p_rps.add_argument("--python-paths", metavar="PATH", nargs="+", help="Additional sys.path directories")
+    p_rps.add_argument(
+        "--world",
+        choices=["editor", "pie", "game"],
+        help="World helper to expose during execution (default: editor)",
+    )
     p_rps.add_argument(
         "--arguments", metavar="JSON", help="Arguments as JSON object (accessible via unreal.get_mcp_args())"
     )
@@ -2986,7 +3019,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect a Widget Blueprint's widget hierarchy and bindings.",
         description=(
             "Returns the full widget tree of a Widget Blueprint (UMG), including slot\n"
-            "properties, property bindings, and animations.\n\n"
+            "properties, property bindings, animations, and referenced input mapping\n"
+            "contexts with resolved key bindings.\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli inspect-widget-blueprint /Game/UI/WBP_MainMenu\n"
             "  soft-ue-cli inspect-widget-blueprint /Game/UI/WBP_HUD --include-defaults --depth-limit 3\n"
@@ -3359,14 +3393,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_iu = sub.add_parser(
         "inspect-uasset",
-        help="Inspect a local .uasset file offline (best support for Blueprint assets).",
+        help="Inspect a local .uasset file offline (best support for Blueprints and External Actors).",
         description=(
             "Parse a local .uasset file without requiring a running editor.\n"
-            "Best support is currently for Blueprint assets.\n\n"
+            "Best support is currently for Blueprint assets and External Actor packages.\n"
+            "External Actor inspection can also surface offline tagged property payloads.\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli inspect-uasset D:/Project/Content/Blueprints/BP_Character.uasset\n"
+            "  soft-ue-cli inspect-uasset D:/Project/Content/__ExternalActors__/Maps/MyMap/5/TQ/ABC123.uasset\n"
             "  soft-ue-cli inspect-uasset BP_Character.uasset --sections all\n"
-            "  soft-ue-cli inspect-uasset BP_Character.uasset --sections variables,functions --format table"
+            "  soft-ue-cli inspect-uasset BP_Character.uasset --sections variables,functions --format table\n"
+            "  soft-ue-cli inspect-uasset D:/Project/Content/__ExternalActors__/Maps/MyMap/5/TQ/ABC123.uasset --sections summary,properties"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -3376,7 +3413,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SECTIONS",
         default="summary",
         help=(
-            "Comma-separated sections to extract: summary, variables, functions, "
+            "Comma-separated sections to extract: summary, properties, variables, functions, "
             "components, events, all (default: summary)"
         ),
     )
@@ -3390,14 +3427,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_du = sub.add_parser(
         "diff-uasset",
-        help="Diff two local .uasset files offline (best support for Blueprint assets).",
+        help="Diff two local .uasset files offline (best support for Blueprints and External Actors).",
         description=(
             "Inspect two local .uasset files and diff their extracted metadata.\n"
-            "Best support is currently for Blueprint assets.\n\n"
+            "Best support is currently for Blueprint assets and External Actor packages.\n"
+            "External Actor diffs can include offline tagged property payload changes.\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli diff-uasset BP_Old.uasset BP_New.uasset\n"
             "  soft-ue-cli diff-uasset BP_Old.uasset BP_New.uasset --sections all\n"
-            "  soft-ue-cli diff-uasset BP_Old.uasset BP_New.uasset --sections variables,functions --format table"
+            "  soft-ue-cli diff-uasset BP_Old.uasset BP_New.uasset --sections variables,functions --format table\n"
+            "  soft-ue-cli diff-uasset D:/snapshots/Actor_before.uasset D:/Project/Content/__ExternalActors__/Maps/MyMap/5/TQ/ABC123.uasset --sections summary,properties"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -3408,7 +3447,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SECTIONS",
         default="summary",
         help=(
-            "Comma-separated sections to diff: summary, variables, functions, "
+            "Comma-separated sections to diff: summary, properties, variables, functions, "
             "components, events, all (default: summary)"
         ),
     )
@@ -3426,13 +3465,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_k = sub.add_parser(
         "query-ue-knowledge",
-        help="Coming soon.",
+        help="Query the knowledge server for UE API docs, tutorials, and workflow skills.",
         description="Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_k.add_argument("query", nargs="?", default=None)
-    p_k.add_argument("--max-results", type=int, default=5)
-    p_k.add_argument("--type", default=None)
-    p_k.add_argument("--list-skills", action="store_true")
+    p_k.add_argument("query", nargs="?", default=None, help="Natural language question about UE API or behavior")
+    p_k.add_argument("--max-results", type=int, default=5, metavar="N", help="Max results to return (default: 5)")
+    p_k.add_argument("--type", choices=["skill"], metavar="TYPE", help="Filter by type: 'skill' for workflow skills")
+    p_k.add_argument("--list-skills", action="store_true", help="List all available workflow skills")
     p_k.set_defaults(func=cmd_knowledge)
 
     # -------------------------------------------------------------------------
@@ -3446,6 +3486,10 @@ def build_parser() -> argparse.ArgumentParser:
             "Creates a GitHub issue with structured bug report fields.\n"
             "Auto-enriches with system info (CLI version, Python, OS, bridge status)\n"
             "unless --no-system-info is passed.\n\n"
+            "PRIVACY:\n"
+            "  Do not include project-specific information or personal information.\n"
+            "  Replace project names, internal paths, asset names, emails, tokens,\n"
+            "  and other sensitive details with generic placeholders.\n\n"
             "AUTHENTICATION:\n"
             "  Set GITHUB_TOKEN env var or run 'gh auth login'.\n"
             "  Required scope: 'public_repo' (public repos) or 'repo' (private).\n\n"
@@ -3459,11 +3503,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_rb.add_argument("--title", required=True, help="Short bug summary")
     p_rb.add_argument(
         "--description", required=True,
-        help="Detailed description. Do not include secrets, tokens, passwords, or private credentials.",
+        help=f"Detailed description. {PRIVACY_GUIDANCE}",
     )
-    p_rb.add_argument("--steps", help="Steps to reproduce")
-    p_rb.add_argument("--expected", help="Expected behavior")
-    p_rb.add_argument("--actual", help="Actual behavior")
+    p_rb.add_argument("--steps", help=f"Steps to reproduce. {PRIVACY_GUIDANCE}")
+    p_rb.add_argument("--expected", help=f"Expected behavior. {PRIVACY_GUIDANCE}")
+    p_rb.add_argument("--actual", help=f"Actual behavior. {PRIVACY_GUIDANCE}")
     p_rb.add_argument("--severity", choices=["critical", "major", "minor"], help="Bug severity label")
     p_rb.add_argument("--no-system-info", action="store_true", help="Opt out of auto-enriched system information")
     p_rb.set_defaults(func=cmd_report_bug)
@@ -3473,6 +3517,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Request a feature by creating a GitHub issue on the soft-ue-cli repo.",
         description=(
             "Creates a GitHub issue with structured feature request fields.\n\n"
+            "PRIVACY:\n"
+            "  Do not include project-specific information or personal information.\n"
+            "  Replace project names, internal paths, asset names, emails, tokens,\n"
+            "  and other sensitive details with generic placeholders.\n\n"
             "AUTHENTICATION:\n"
             "  Set GITHUB_TOKEN env var or run 'gh auth login'.\n"
             "  Required scope: 'public_repo' (public repos) or 'repo' (private).\n\n"
@@ -3486,9 +3534,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_rf.add_argument("--title", required=True, help="Short feature summary")
     p_rf.add_argument(
         "--description", required=True,
-        help="What the feature should do. Do not include secrets, tokens, passwords, or private credentials.",
+        help=f"What the feature should do. {PRIVACY_GUIDANCE}",
     )
-    p_rf.add_argument("--use-case", help="Motivation or use case")
+    p_rf.add_argument("--use-case", help=f"Motivation or use case. {PRIVACY_GUIDANCE}")
     p_rf.add_argument(
         "--priority", choices=["enhancement", "nice-to-have"], default="enhancement",
         help="Priority label (default: enhancement)",

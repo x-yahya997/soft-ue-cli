@@ -9,7 +9,7 @@
 #include "SoftUEBridgeSubsystem.generated.h"
 
 /** Engine subsystem that hosts the bridge HTTP server.
- *  Active in the editor, PIE, and packaged builds. */
+ *  Active in the editor, PIE, and development builds by default. */
 UCLASS()
 class SOFTUEBRIDGE_API USoftUEBridgeSubsystem : public UEngineSubsystem
 {

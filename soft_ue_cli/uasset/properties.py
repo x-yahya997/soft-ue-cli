@@ -50,6 +50,8 @@ def read_property_tag(reader: UAssetReader, name_resolver: Any) -> PropertyTag |
         value_ref = reader.read_int64()
         tag.inner_type = name_resolver.get_name(int(inner_ref))
         tag.value_type = name_resolver.get_name(int(value_ref))
+    elif prop_type == "BoolProperty":
+        tag.value = reader.read_bool()
 
     tag.has_property_guid = reader.read_bool()
     if tag.has_property_guid:

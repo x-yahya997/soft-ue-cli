@@ -84,6 +84,23 @@ def test_choices_map_to_enum():
     assert "enum" in severity
 
 
+def test_feedback_tools_include_privacy_guidance():
+    tools = extract_tools()
+
+    report_bug = next(t for t in tools if t["name"] == "report-bug")
+    feature = next(t for t in tools if t["name"] == "request-feature")
+
+    report_desc = report_bug["parameters"]["properties"]["description"]["description"]
+    report_steps = report_bug["parameters"]["properties"]["steps"]["description"]
+    feature_desc = feature["parameters"]["properties"]["description"]["description"]
+    feature_use_case = feature["parameters"]["properties"]["use_case"]["description"]
+
+    assert "project-specific information or personal information" in report_desc
+    assert "generic placeholders" in report_steps
+    assert "project-specific information or personal information" in feature_desc
+    assert "generic placeholders" in feature_use_case
+
+
 def test_help_text_becomes_description():
     tools = extract_tools()
     tool = next(t for t in tools if t["name"] == "spawn-actor")
@@ -95,7 +112,7 @@ def test_tool_count_is_reasonable():
     """Should have a stable, non-trivial tool count after exclusions."""
     tools = extract_tools()
     assert len(tools) >= 60
-    assert len(tools) <= 80
+    assert len(tools) <= 90
 
 
 def test_skills_excluded():

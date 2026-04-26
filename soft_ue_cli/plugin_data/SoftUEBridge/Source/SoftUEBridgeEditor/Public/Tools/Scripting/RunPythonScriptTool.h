@@ -32,6 +32,10 @@ private:
 	// Read script file from disk
 	bool ReadScriptFile(const FString& ScriptPath, FString& OutScript, FString& OutError);
 
-	// Build Python command with arguments and additional Python paths
-	FString BuildPythonCommand(const FString& Script, const TSharedPtr<FJsonObject>& Arguments, const TArray<FString>& PythonPaths);
+	// Build Python command with arguments, world helpers, and additional Python paths
+	FString BuildPythonCommand(
+		const FString& Script,
+		const TSharedPtr<FJsonObject>& Arguments,
+		const TArray<FString>& PythonPaths,
+		const FString& WorldType);
 };

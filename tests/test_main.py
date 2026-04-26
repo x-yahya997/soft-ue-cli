@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -155,18 +156,18 @@ def test_parser_get_console_var():
 
 def test_parser_inspect_uasset():
     parser = build_parser()
-    args = parser.parse_args(["inspect-uasset", "BP_Player.uasset", "--sections", "summary", "--format", "json"])
+    args = parser.parse_args(["inspect-uasset", "BP_Player.uasset", "--sections", "summary,properties", "--format", "json"])
     assert args.file_path == "BP_Player.uasset"
-    assert args.sections == "summary"
+    assert args.sections == "summary,properties"
     assert args.format == "json"
 
 
 def test_parser_diff_uasset():
     parser = build_parser()
-    args = parser.parse_args(["diff-uasset", "BP_Old.uasset", "BP_New.uasset", "--sections", "variables"])
+    args = parser.parse_args(["diff-uasset", "BP_Old.uasset", "BP_New.uasset", "--sections", "properties"])
     assert args.left_file == "BP_Old.uasset"
     assert args.right_file == "BP_New.uasset"
-    assert args.sections == "variables"
+    assert args.sections == "properties"
 
 
 def test_parser_call_function_no_args():
@@ -390,6 +391,35 @@ def test_run_python_script_no_args_exits(scripts_home):
     assert exc.value.code == 1
 
 
+def test_run_python_script_path_reads_file(tmp_path):
+    script_path = tmp_path / "runtime_check.py"
+    script_path.write_text("print('ok')", encoding="utf-8")
+
+    parser = build_parser()
+    args = parser.parse_args(["run-python-script", "--script-path", str(script_path), "--world", "pie"])
+
+    with patch("soft_ue_cli.__main__.call_tool", return_value={"output": "ok"}) as mock_call:
+        cmd_run_python_script(args)
+
+    mock_call.assert_called_once_with(
+        "run-python-script",
+        {
+            "script": "print('ok')",
+            "world": "pie",
+        },
+    )
+
+
+def test_run_python_script_path_missing_exits(tmp_path):
+    parser = build_parser()
+    args = parser.parse_args(["run-python-script", "--script-path", str(tmp_path / "missing.py")])
+
+    with pytest.raises(SystemExit) as exc:
+        cmd_run_python_script(args)
+
+    assert exc.value.code == 1
+
+
 # -- _validate_script_name -----------------------------------------------------
 
 
@@ -448,6 +478,12 @@ def test_parser_run_python_script_name():
     parser = build_parser()
     args = parser.parse_args(["run-python-script", "--name", "myscript"])
     assert args.name == "myscript"
+
+
+def test_parser_run_python_script_world():
+    parser = build_parser()
+    args = parser.parse_args(["run-python-script", "--script", "print('x')", "--world", "pie"])
+    assert args.world == "pie"
 
 
 # -- capture-screenshot parser -------------------------------------------------
