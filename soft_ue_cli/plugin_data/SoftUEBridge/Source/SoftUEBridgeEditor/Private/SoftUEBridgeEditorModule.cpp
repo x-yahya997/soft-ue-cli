@@ -9,6 +9,8 @@
 
 // Asset
 #include "Tools/Asset/QueryAssetTool.h"
+#include "Tools/Asset/QueryEnumTool.h"
+#include "Tools/Asset/QueryStructTool.h"
 #include "Tools/Asset/DeleteAssetTool.h"
 #include "Tools/Asset/GetAssetDiffTool.h"
 #include "Tools/Asset/GetAssetPreviewTool.h"
@@ -93,6 +95,8 @@ void FSoftUEBridgeEditorModule::StartupModule()
 
 	// Asset
 	Registry.RegisterToolClass<UQueryAssetTool>();
+	Registry.RegisterToolClass<UQueryEnumTool>();
+	Registry.RegisterToolClass<UQueryStructTool>();
 	Registry.RegisterToolClass<UDeleteAssetTool>();
 	Registry.RegisterToolClass<UGetAssetDiffTool>();
 	Registry.RegisterToolClass<UGetAssetPreviewTool>();

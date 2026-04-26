@@ -265,6 +265,14 @@ def cmd_query_asset(args: argparse.Namespace) -> None:
     _print_json(_run_tool("query-asset", arguments))
 
 
+def cmd_query_enum(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("query-enum", {"asset_path": args.asset_path}))
+
+
+def cmd_query_struct(args: argparse.Namespace) -> None:
+    _print_json(_run_tool("query-struct", {"asset_path": args.asset_path}))
+
+
 def cmd_delete_asset(args: argparse.Namespace) -> None:
     _print_json(_run_tool("delete-asset", {"asset_path": args.asset_path}))
 
@@ -2144,6 +2152,36 @@ def build_parser() -> argparse.ArgumentParser:
     p_qa.add_argument("--row-filter", metavar="PATTERN", help="Filter DataTable rows by name")
     p_qa.add_argument("--search", metavar="TEXT", help="General search filter")
     p_qa.set_defaults(func=cmd_query_asset)
+
+    p_qe = sub.add_parser(
+        "query-enum",
+        help="Inspect a UserDefinedEnum asset.",
+        description=(
+            "Read a UserDefinedEnum asset and return enumerator names, display names,\n"
+            "tooltips, and numeric values.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli query-enum /Game/Data/E_TraversalActionType\n"
+            "  soft-ue-cli query-enum /Game/UI/E_MenuState"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_qe.add_argument("asset_path", help="UserDefinedEnum asset path")
+    p_qe.set_defaults(func=cmd_query_enum)
+
+    p_qs = sub.add_parser(
+        "query-struct",
+        help="Inspect a UserDefinedStruct asset.",
+        description=(
+            "Read a UserDefinedStruct asset and return authored member names,\n"
+            "types, defaults, and metadata.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli query-struct /Game/Data/S_TraversalCheckResult\n"
+            "  soft-ue-cli query-struct /Game/Data/S_TraversalChooserParams"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_qs.add_argument("asset_path", help="UserDefinedStruct asset path")
+    p_qs.set_defaults(func=cmd_query_struct)
 
     p_da = sub.add_parser(
         "delete-asset",

@@ -20,7 +20,9 @@ from soft_ue_cli.__main__ import (
     cmd_capture_viewport,
     cmd_delete_script,
     cmd_list_scripts,
+    cmd_query_enum,
     cmd_query_mpc,
+    cmd_query_struct,
     cmd_run_python_script,
     cmd_save_script,
     cmd_setup,
@@ -857,3 +859,36 @@ def test_cmd_add_graph_node_invalid_position_exits():
     with pytest.raises(SystemExit) as exc:
         cmd_add_graph_node(args)
     assert exc.value.code == 1
+
+
+# -- query-enum / query-struct ------------------------------------------------
+
+
+def test_parser_query_enum():
+    parser = build_parser()
+    args = parser.parse_args(["query-enum", "/Game/Data/E_MenuState"])
+    assert args.asset_path == "/Game/Data/E_MenuState"
+    assert args.func == cmd_query_enum
+
+
+def test_cmd_query_enum_calls_tool():
+    parser = build_parser()
+    args = parser.parse_args(["query-enum", "/Game/Data/E_MenuState"])
+    with patch("soft_ue_cli.__main__.call_tool", return_value={"enumerators": []}) as mock_call:
+        cmd_query_enum(args)
+    mock_call.assert_called_once_with("query-enum", {"asset_path": "/Game/Data/E_MenuState"})
+
+
+def test_parser_query_struct():
+    parser = build_parser()
+    args = parser.parse_args(["query-struct", "/Game/Data/S_Result"])
+    assert args.asset_path == "/Game/Data/S_Result"
+    assert args.func == cmd_query_struct
+
+
+def test_cmd_query_struct_calls_tool():
+    parser = build_parser()
+    args = parser.parse_args(["query-struct", "/Game/Data/S_Result"])
+    with patch("soft_ue_cli.__main__.call_tool", return_value={"members": []}) as mock_call:
+        cmd_query_struct(args)
+    mock_call.assert_called_once_with("query-struct", {"asset_path": "/Game/Data/S_Result"})

@@ -1,6 +1,21 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to soft-ue-cli will be documented in this file.
+
+## [1.21.0] - 2026-04-10
+
+### Added
+- `query-enum` command for UserDefinedEnum introspection: authored names, display names, tooltips, and numeric values
+- `query-struct` command for UserDefinedStruct introspection: authored member names, defaults, metadata, and reflected type info
+- `blueprint-to-cpp` skill now starts with dependency-first planning guidance, including enum/struct inspection and promotion-first conversion strategy
+
+### Fixed
+- `query-asset --asset-path` now inspects `UserDefinedEnum` and `UserDefinedStruct` assets instead of failing with a generic load error
+- `query-asset --asset-path` now inspects Blueprint-generated `UDataAsset` / `UPrimaryDataAsset` assets via their generated class default object
+- `capture-screenshot tab --window-name ...` now falls back to visible tab labels and matching top-level window titles, so asset editor tabs opened by label can be captured more reliably
+
+### Changed
+- Removed the standalone `inspect-uasset` skill prompt; offline `.uasset` inspection remains available as a command and as part of `test-tools`
 
 ## [1.20.6] - 2026-04-10
 

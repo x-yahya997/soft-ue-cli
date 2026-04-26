@@ -1,4 +1,4 @@
-# soft-ue-cli (+mcp)
+﻿# soft-ue-cli (+mcp)
 
 [![PyPI version](https://img.shields.io/pypi/v/soft-ue-cli.svg)](https://pypi.org/project/soft-ue-cli/)
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/soft-ue-cli.svg)](https://pypi.org/project/soft-ue-cli/)
@@ -199,6 +199,8 @@ Every command is available via `soft-ue-cli <command>`. Run `soft-ue-cli <comman
 | Command | Description |
 |---------|-------------|
 | `query-asset` | Search the Content Browser by name, class, or path -- also inspect DataTables |
+| `query-enum` | Inspect a UserDefinedEnum asset -- authored names, display names, tooltips, numeric values |
+| `query-struct` | Inspect a UserDefinedStruct asset -- authored member names, defaults, and metadata |
 | `create-asset` | Create new Blueprint, Material, DataTable, World (Level), or other asset types |
 | `delete-asset` | Delete an asset |
 | `set-asset-property` | Set a property on a Blueprint CDO or component |
@@ -305,7 +307,6 @@ Skills are markdown prompts that teach an LLM client how to perform complex mult
 | Skill | Description |
 |-------|-------------|
 | `blueprint-to-cpp` | Generate C++ `.h`/`.cpp` from a Blueprint asset -- Layer 1 (class scaffolding) + Layer 2 (graph logic translation) |
-| `inspect-uasset` | Inspect a local `.uasset` offline and extract conservative metadata without launching Unreal Editor; best support is currently for Blueprint assets |
 | `level-from-image` | Populate a UE level from a reference image -- analyzes the image, maps scene elements to project assets, batch-places actors, then iterates with visual feedback (viewport screenshots) |
 | `test-tools` | Run the exhaustive live integration test script across CLI and MCP modes, including offline `.uasset` smoke checks against a generated Blueprint |
 
@@ -354,6 +355,13 @@ soft-ue-cli query-blueprint /Game/Blueprints/BP_Player --include components,vari
 ```bash
 soft-ue-cli inspect-uasset D:/Project/Content/Blueprints/BP_Player.uasset --sections all
 soft-ue-cli diff-uasset D:/snapshots/BP_Player_before.uasset D:/Project/Content/Blueprints/BP_Player.uasset --sections variables,functions
+```
+
+### Inspect UserDefinedEnum and UserDefinedStruct assets
+
+```bash
+soft-ue-cli query-enum /Game/Data/E_TraversalActionType
+soft-ue-cli query-struct /Game/Data/S_TraversalCheckResult
 ```
 
 ### Start a PIE session and send input
@@ -422,6 +430,8 @@ soft-ue-cli skills list
 # Feed the blueprint-to-cpp skill to your LLM client
 soft-ue-cli skills get blueprint-to-cpp
 # The LLM reads the skill instructions, then runs:
+#   soft-ue-cli query-enum /Game/Data/E_Dependency
+#   soft-ue-cli query-struct /Game/Data/S_Dependency
 #   soft-ue-cli query-blueprint /Game/BP_Player --include all --include-inherited
 #   soft-ue-cli query-blueprint-graph /Game/BP_Player --list-callables
 # ...and generates the .h/.cpp files from the JSON responses

@@ -29,7 +29,7 @@ def test_list_skills_items_have_name_and_description():
 def test_list_skills_contains_blueprint_to_cpp():
     names = [s["name"] for s in list_skills()]
     assert "blueprint-to-cpp" in names
-    assert "inspect-uasset" in names
+    assert "test-tools" in names
 
 
 # -- get_skill -----------------------------------------------------------------
@@ -40,6 +40,9 @@ def test_get_skill_returns_content():
     assert content is not None
     assert len(content) > 0
     assert "blueprint-to-cpp" in content
+    assert "Dependency-first planning" in content
+    assert "soft-ue-cli query-enum" in content
+    assert "soft-ue-cli query-struct" in content
 
 
 def test_test_tools_contains_idempotent_teardown_and_insights_stop():
@@ -94,7 +97,7 @@ def test_get_skill_content_has_frontmatter():
 
 def test_all_skills_have_required_frontmatter():
     """Every .md skill file must have name, description, and version in frontmatter."""
-    skills_dir = Path(__file__).parents[2] / "cli" / "soft_ue_cli" / "skills"
+    skills_dir = Path(__file__).parents[1] / "soft_ue_cli" / "skills"
     for md_file in skills_dir.glob("*.md"):
         text = md_file.read_text(encoding="utf-8")
         assert text.startswith("---"), f"{md_file.name} missing frontmatter"
