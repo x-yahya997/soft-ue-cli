@@ -2,6 +2,11 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.25.3] - 2026-04-15
+
+### Changed
+- refreshed the public README badge strip to highlight AI agent support, shipped skills, tool count, MCP mode, and direct support links without implying the package is tied to a single client
+
 ## [1.25.2] - 2026-04-14
 
 ### Fixed
@@ -285,7 +290,7 @@ All notable changes to soft-ue-cli will be documented in this file.
 
 ### Added
 - `compile-material` command ? trigger recompilation of Material, MaterialInstance, or MaterialFunction assets from the CLI
-- MSYS/Git Bash path mangling detection ? automatically reverses `/Game/` ¡æ `C:/Program Files/Git/Game/` conversion for asset paths
+- MSYS/Git Bash path mangling detection ? automatically reverses `/Game/` â†’ `C:/Program Files/Git/Game/` conversion for asset paths
 
 ### Fixed
 - `get-logs` and all output commands no longer crash with `UnicodeEncodeError` on Korean Windows (cp949 locale)
@@ -398,3 +403,4 @@ All notable changes to soft-ue-cli will be documented in this file.
 - StateTree editing, widget inspection, DataTable editing
 - Build and Live Coding support
 - Automatic server discovery via `.soft-ue-bridge/instance.json`
+

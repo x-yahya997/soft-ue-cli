@@ -1375,7 +1375,6 @@ def cmd_knowledge(args: argparse.Namespace) -> None:
     """Query the optional knowledge server (RAG)."""
     print("Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.")
 
-
 def cmd_skills(args: argparse.Namespace) -> None:
     from .skills import get_skill, list_skills
 
@@ -2283,7 +2282,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_scv.set_defaults(func=cmd_set_console_var)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Analysis
+    # Editor tools ? Analysis
     # -------------------------------------------------------------------------
 
     p_ch = sub.add_parser(
@@ -2306,7 +2305,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ch.set_defaults(func=cmd_class_hierarchy)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Asset
+    # Editor tools ? Asset
     # -------------------------------------------------------------------------
 
     p_qa = sub.add_parser(
@@ -2444,7 +2443,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_oa.set_defaults(func=cmd_open_asset)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Blueprint
+    # Editor tools ? Blueprint
     # -------------------------------------------------------------------------
 
     p_qb = sub.add_parser(
@@ -2498,7 +2497,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_qbg.set_defaults(func=cmd_query_blueprint_graph)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Build
+    # Editor tools ? Build
     # -------------------------------------------------------------------------
 
     p_bar = sub.add_parser(
@@ -2542,7 +2541,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_tlc.set_defaults(func=cmd_trigger_live_coding)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Editor
+    # Editor tools ? Editor
     # -------------------------------------------------------------------------
 
     p_cs2 = sub.add_parser(
@@ -2550,10 +2549,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Capture a screenshot of the editor window or a specific panel.",
         description=(
             "Modes:\n"
-            "  window    — capture the entire editor\n"
-            "  tab       — capture a specific editor panel (use --window-name)\n"
-            "  region    — capture a screen region (use --region X,Y,W,H)\n"
-            "  viewport  — capture the PIE game screen\n\n"
+            "  window    ? capture the entire editor\n"
+            "  tab       ? capture a specific editor panel (use --window-name)\n"
+            "  region    ? capture a screen region (use --region X,Y,W,H)\n"
+            "  viewport  ? capture the PIE game screen\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli capture-screenshot window\n"
             "  soft-ue-cli capture-screenshot tab --window-name Blueprint\n"
@@ -2569,7 +2568,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cs2.add_argument("--output", choices=["file", "base64"], help="Output mode: file (default) or base64")
     p_cs2.set_defaults(func=cmd_capture_screenshot)
 
-    # ---- capture-viewport (runtime — works in PIE and standalone) ----
+    # ---- capture-viewport (runtime ? works in PIE and standalone) ----
 
     p_cv = sub.add_parser(
         "capture-viewport",
@@ -2593,7 +2592,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cv.set_defaults(func=cmd_capture_viewport)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Material
+    # Editor tools ? Material
     # -------------------------------------------------------------------------
 
     p_qm = sub.add_parser(
@@ -2640,7 +2639,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_qmpc.set_defaults(func=cmd_query_mpc)
 
     # -------------------------------------------------------------------------
-    # Editor tools — PIE
+    # Editor tools ? PIE
     # -------------------------------------------------------------------------
 
     p_ps = sub.add_parser(
@@ -2648,12 +2647,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Control Play-In-Editor sessions (start, stop, pause, resume, wait-for).",
         description=(
             "Actions:\n"
-            "  start      — launch PIE (use --mode, --map, --timeout)\n"
-            "  stop       — end PIE session\n"
-            "  pause      — pause the game\n"
-            "  resume     — resume a paused game\n"
-            "  get-state  — get current PIE state (use --include)\n"
-            "  wait-for   — poll a property until condition is met (use --actor-name, --property, etc.)\n\n"
+            "  start      ? launch PIE (use --mode, --map, --timeout)\n"
+            "  stop       ? end PIE session\n"
+            "  pause      ? pause the game\n"
+            "  resume     ? resume a paused game\n"
+            "  get-state  ? get current PIE state (use --include)\n"
+            "  wait-for   ? poll a property until condition is met (use --actor-name, --property, etc.)\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli pie-session start\n"
             "  soft-ue-cli pie-session start --map /Game/Maps/TestLevel --timeout 60\n"
@@ -2720,10 +2719,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Send input events to a running game (PIE or packaged build).",
         description=(
             "Actions:\n"
-            "  key      — press/release a key (use --key)\n"
-            "  action   — trigger an input action (use --action-name)\n"
-            "  move-to  — move character to location (use --target X,Y,Z)\n"
-            "  look-at  — rotate character toward target (use --target or --target-actor)\n\n"
+            "  key      ? press/release a key (use --key)\n"
+            "  action   ? trigger an input action (use --action-name)\n"
+            "  move-to  ? move character to location (use --target X,Y,Z)\n"
+            "  look-at  ? rotate character toward target (use --target or --target-actor)\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli trigger-input key --key Space\n"
             "  soft-ue-cli trigger-input action --action-name Jump\n"
@@ -2741,7 +2740,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ti.set_defaults(func=cmd_trigger_input)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Performance
+    # Editor tools ? Performance
     # -------------------------------------------------------------------------
 
     p_ic = sub.add_parser(
@@ -2797,7 +2796,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ia.set_defaults(func=cmd_insights_analyze)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Project
+    # Editor tools ? Project
     # -------------------------------------------------------------------------
 
     p_pinfo = sub.add_parser(
@@ -2817,7 +2816,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_pinfo.set_defaults(func=cmd_project_info)
 
     # -------------------------------------------------------------------------
-    # Editor tools — References
+    # Editor tools ? References
     # -------------------------------------------------------------------------
 
     p_fr = sub.add_parser(
@@ -2825,9 +2824,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Find asset references, variable usages, or Blueprint node usages.",
         description=(
             "Types:\n"
-            "  asset    — find assets that reference the given asset\n"
-            "  property — find where a Blueprint variable is used (requires --variable-name)\n"
-            "  node     — find Blueprint nodes by class (requires --node-class)\n\n"
+            "  asset    ? find assets that reference the given asset\n"
+            "  property ? find where a Blueprint variable is used (requires --variable-name)\n"
+            "  node     ? find Blueprint nodes by class (requires --node-class)\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli find-references asset /Game/Textures/T_Player\n"
             "  soft-ue-cli find-references property /Game/Blueprints/BP_Hero --variable-name Health\n"
@@ -2845,7 +2844,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_fr.set_defaults(func=cmd_find_references)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Scripting
+    # Editor tools ? Scripting
     # -------------------------------------------------------------------------
 
     p_rps = sub.add_parser(
@@ -2912,7 +2911,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ds.set_defaults(func=cmd_delete_script)
 
     # -------------------------------------------------------------------------
-    # Editor tools — StateTree
+    # Editor tools ? StateTree
     # -------------------------------------------------------------------------
 
     p_qst = sub.add_parser(
@@ -3016,7 +3015,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rsss.set_defaults(func=cmd_remove_statetree_state)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Widget
+    # Editor tools ? Widget
     # -------------------------------------------------------------------------
 
     p_iwb = sub.add_parser(
@@ -3064,7 +3063,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_irw.set_defaults(func=cmd_inspect_runtime_widgets)
 
     # -------------------------------------------------------------------------
-    # Editor tools — Write
+    # Editor tools ? Write
     # -------------------------------------------------------------------------
 
     p_sap = sub.add_parser(
@@ -3471,7 +3470,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_k = sub.add_parser(
         "query-ue-knowledge",
-        help="Query the knowledge server for UE API docs, tutorials, and workflow skills.",
+        help="Query the optional knowledge server.",
         description="Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -3695,7 +3694,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rw_start.add_argument(
         "--file", metavar="PATH",
-        help="Save path — auto-saves to this .utrace on stop",
+        help="Save path ? auto-saves to this .utrace on stop",
     )
     p_rw_start.add_argument(
         "--load", metavar="PATH",
@@ -3835,3 +3834,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+

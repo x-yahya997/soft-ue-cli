@@ -3,8 +3,14 @@
 [![PyPI version](https://img.shields.io/pypi/v/soft-ue-cli.svg)](https://pypi.org/project/soft-ue-cli/)
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/soft-ue-cli.svg)](https://pypi.org/project/soft-ue-cli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Sponsor](https://img.shields.io/github/sponsors/softdaddy-o?label=Sponsor&logo=github)](https://github.com/sponsors/softdaddy-o)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/softdaddy)
+[![AI agents](https://img.shields.io/badge/AI_agents-ready-7c3aed)](#why-soft-ue-cli)
+[![skills](https://img.shields.io/badge/skills-11-84cc16)](#skills-llm-workflow-prompts)
+[![tools](https://img.shields.io/badge/tools-60%2B-f97316)](#complete-command-reference)
+[![MCP](https://img.shields.io/badge/MCP-server-0ea5e9)](#mcp-server-mode)
+[![AI built for coding agents](https://img.shields.io/badge/AI_built_for-coding_agents-6b7280)](#why-soft-ue-cli)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub_Sponsors-Support_this_project-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/softdaddy-o)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Buy_me_a_coffee-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/softdaddy)
+[![Support this project](https://img.shields.io/badge/Support_this_project-f6c343)](#support-this-project)
 
 Built and maintained by a solo developer. [Support this project](#support-this-project) if it saves you time.
 
@@ -757,3 +763,4 @@ MIT License. See [LICENSE](https://github.com/softdaddy-o/soft-ue-cli/blob/main/
 - **PyPI**: [pypi.org/project/soft-ue-cli](https://pypi.org/project/soft-ue-cli/)
 - **GitHub**: [github.com/softdaddy-o/soft-ue-cli](https://github.com/softdaddy-o/soft-ue-cli)
 - **Claude Code**: [docs.anthropic.com/en/docs/claude-code](https://docs.anthropic.com/en/docs/claude-code)
+

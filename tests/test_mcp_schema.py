@@ -1,8 +1,10 @@
-"""Tests for cli/soft_ue_cli/mcp_schema.py — argparse to MCP tool schema conversion."""
+"""Tests for cli/soft_ue_cli/mcp_schema.py ??argparse to MCP tool schema conversion."""
 
 from __future__ import annotations
 
+
 import pytest
+
 
 from soft_ue_cli.mcp_schema import extract_tools, EXCLUDED_COMMANDS
 
@@ -136,3 +138,6 @@ def test_parser_mcp_serve():
     parser = build_parser()
     args = parser.parse_args(["mcp-serve"])
     assert args.command == "mcp-serve"
+
+
+
