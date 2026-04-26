@@ -270,6 +270,57 @@ FBridgeResponse FBridgeServer::HandleToolsList(const FBridgeRequest& Request)
 	return FBridgeResponse::Success(Request.Id, Result);
 }
 
+#if PLATFORM_WINDOWS
+// MSVC C2712: a function containing __try cannot have local variables with
+// destructors (even temporaries from calls inside __try).  The fix is two
+// separate functions:
+//
+//   RunWithWindowsSEH  — owns the __try/__except; touches only a raw
+//                        function pointer and void* (no destructors → C2712
+//                        is satisfied).
+//
+//   DoExecuteToolSEH   — does the actual work (C++ temporaries OK here
+//                        because it has no __try block).
+//
+// When an SEH exception fires inside DoExecuteToolSEH, the __except in
+// RunWithWindowsSEH catches it.  Destructors of temporaries inside
+// DoExecuteToolSEH are NOT called (SEH, not C++ unwind) — minor leak, but
+// the editor process stays alive instead of crashing.
+
+#include "Windows/AllowWindowsPlatformTypes.h"  // brings in EXCEPTION_EXECUTE_HANDLER, GetExceptionCode
+
+struct FToolCallSEHParam
+{
+	FBridgeToolResult*             OutResult;
+	const FString*                 ToolName;
+	const TSharedPtr<FJsonObject>* Arguments;
+	const FBridgeToolContext*      Context;
+};
+
+// Has C++ temporaries, but NO __try — fine.
+static uint32 DoExecuteToolSEH(void* Param)
+{
+	FToolCallSEHParam* P = static_cast<FToolCallSEHParam*>(Param);
+	*P->OutResult = FBridgeToolRegistry::Get().ExecuteTool(*P->ToolName, *P->Arguments, *P->Context);
+	return 0;
+}
+
+// Has __try, but NO C++ locals with destructors — satisfies C2712.
+static uint32 RunWithWindowsSEH(uint32(*Work)(void*), void* Param)
+{
+	__try
+	{
+		return Work(Param);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		return static_cast<uint32>(GetExceptionCode());
+	}
+}
+
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif // PLATFORM_WINDOWS
+
 FBridgeResponse FBridgeServer::HandleToolsCall(const FBridgeRequest& Request)
 {
 	if (!Request.Params.IsValid())
@@ -304,7 +355,22 @@ FBridgeResponse FBridgeServer::HandleToolsCall(const FBridgeRequest& Request)
 	// timeout/hang.  RAII guard ensures restore even if ExecuteTool throws.
 	FUnattendedScriptGuard UnattendedGuard;
 
-	FBridgeToolResult ToolResult = FBridgeToolRegistry::Get().ExecuteTool(ToolName, Arguments, Context);
+	FBridgeToolResult ToolResult;
+#if PLATFORM_WINDOWS
+	{
+		FToolCallSEHParam Param{ &ToolResult, &ToolName, &Arguments, &Context };
+		uint32 SehCode = RunWithWindowsSEH(DoExecuteToolSEH, &Param);
+		if (SehCode != 0)
+		{
+			return FBridgeResponse::Error(Request.Id, EBridgeErrorCode::InternalError,
+				FString::Printf(TEXT("Windows structured exception 0x%08X in tool '%s'. "
+				                     "UE state may be inconsistent."), SehCode, *ToolName));
+		}
+	}
+#else
+	ToolResult = FBridgeToolRegistry::Get().ExecuteTool(ToolName, Arguments, Context);
+#endif
+
 	return FBridgeResponse::Success(Request.Id, ToolResult.ToJson());
 }
 

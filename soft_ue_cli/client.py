@@ -14,7 +14,7 @@ from .discovery import get_server_url
 _id_counter = itertools.count(1)
 
 
-def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+def call_tool(tool_name: str, arguments: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
     """Call a tool on the SoftUEBridge server and return the parsed result.
 
     Raises BridgeError on connection errors or tool errors.
@@ -23,7 +23,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 
     url = get_server_url()
     endpoint = f"{url}/bridge"
-    timeout = float(os.environ.get("SOFT_UE_BRIDGE_TIMEOUT", "30"))
+    timeout = timeout if timeout is not None else float(os.environ.get("SOFT_UE_BRIDGE_TIMEOUT", "30"))
 
     payload = {
         "jsonrpc": "2.0",

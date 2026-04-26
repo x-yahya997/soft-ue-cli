@@ -19,6 +19,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "UObject/Interface.h"
 #include "GameFramework/Actor.h"
 #include "ScopedTransaction.h"
 #include "WidgetBlueprint.h"
@@ -300,6 +301,11 @@ UObject* UCreateAssetTool::CreateAssetByName(
 		return CreateAnimLayerInterface(AssetPath, AssetName, ParentClass, Result, OutError);
 	}
 
+	if (LowerName == TEXT("blueprintinterface") || LowerName == TEXT("bpi"))
+	{
+		return CreateBlueprintInterface(AssetPath, AssetName, Result, OutError);
+	}
+
 	if (LowerName == TEXT("dataasset"))
 	{
 		return CreateDataAsset(AssetPath, AssetName, UDataAsset::StaticClass(), OutError);
@@ -538,6 +544,32 @@ UObject* UCreateAssetTool::CreateAnimLayerInterface(
 	else
 	{
 		OutError = TEXT("Failed to create AnimLayerInterface");
+	}
+
+	return CreatedAsset;
+}
+
+UObject* UCreateAssetTool::CreateBlueprintInterface(
+	const FString& AssetPath,
+	const FString& AssetName,
+	TSharedPtr<FJsonObject>& Result,
+	FString& OutError)
+{
+	UObject* CreatedAsset = FKismetEditorUtilities::CreateBlueprint(
+		UInterface::StaticClass(),
+		CreatePackage(*AssetPath),
+		*AssetName,
+		BPTYPE_Interface,
+		UBlueprint::StaticClass(),
+		UBlueprintGeneratedClass::StaticClass());
+
+	if (!CreatedAsset)
+	{
+		OutError = TEXT("Failed to create BlueprintInterface");
+	}
+	else
+	{
+		Result->SetStringField(TEXT("blueprint_type"), TEXT("Interface"));
 	}
 
 	return CreatedAsset;

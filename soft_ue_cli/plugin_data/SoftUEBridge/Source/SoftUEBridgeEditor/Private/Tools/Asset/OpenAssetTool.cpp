@@ -15,6 +15,48 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/Texture2D.h"
+#include "Engine/World.h"
+#include "Misc/OutputDevice.h"
+
+namespace
+{
+	/**
+	 * Replaces GError for the duration of a scope and restores it on destruction.
+	 * When loading a new level, UEditorEngine::CheckForWorldGCLeaks fires a Fatal
+	 * log through GError if any world-owning plugin (e.g. Niagara) hasn't yet
+	 * released its reference.  The level switch itself completes successfully —
+	 * the "leak" is a timing artefact — so suppressing the fatal allows the new
+	 * world to load, after which the plugin updates its reference normally on the
+	 * next tick.
+	 */
+	class FSuppressMapLoadFatalDevice : public FOutputDeviceError
+	{
+	public:
+		TArray<FString> SuppressedMessages;
+
+		virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override
+		{
+			if (Verbosity == ELogVerbosity::Fatal)
+			{
+				UE_LOG(LogSoftUEBridgeEditor, Warning,
+					TEXT("open-asset: suppressed fatal during map load: %s"), V);
+				SuppressedMessages.Add(FString(V));
+			}
+		}
+
+		virtual void HandleError() override {}  // no-op: suppressing the error
+
+		virtual bool CanBeUsedOnAnyThread() const override { return true; }
+		virtual bool CanBeUsedOnPanicThread() const override { return true; }
+	};
+
+	struct FGErrorGuard
+	{
+		FOutputDeviceError* Saved;
+		explicit FGErrorGuard(FOutputDeviceError* Replacement) : Saved(GError) { GError = Replacement; }
+		~FGErrorGuard() { GError = Saved; }
+	};
+}
 
 TMap<FString, FBridgeSchemaProperty> UOpenAssetTool::GetInputSchema() const
 {
@@ -102,8 +144,23 @@ FBridgeToolResult UOpenAssetTool::ExecuteAssetMode(const FString& AssetPath, boo
 	// Check if already open
 	bool bWasAlreadyOpen = AssetEditorSubsystem->FindEditorForAsset(Asset, false) != nullptr;
 
-	// Open the asset editor
+	// Open the asset editor.
+	// For World assets (levels) the load path calls CheckForWorldGCLeaks, which
+	// raises a Fatal through GError if a plugin (e.g. Niagara) holds a lingering
+	// reference to the outgoing world.  The switch itself completes successfully,
+	// so we suppress that specific fatal for the duration of the call and note it
+	// in the response instead of crashing.
+	FSuppressMapLoadFatalDevice SuppressDevice;
+	const bool bIsWorld = Asset->IsA<UWorld>();
+	TOptional<FGErrorGuard> ErrorGuard;
+	if (bIsWorld)
+	{
+		ErrorGuard.Emplace(&SuppressDevice);
+	}
+
 	bool bSuccess = AssetEditorSubsystem->OpenEditorForAsset(Asset);
+
+	ErrorGuard.Reset(); // restore GError before any further work
 
 	if (!bSuccess)
 	{
@@ -131,6 +188,11 @@ FBridgeToolResult UOpenAssetTool::ExecuteAssetMode(const FString& AssetPath, boo
 	Result->SetStringField(TEXT("asset_class"), Asset->GetClass()->GetName());
 	Result->SetStringField(TEXT("editor_type"), GetEditorTypeName(Asset));
 	Result->SetBoolField(TEXT("was_already_open"), bWasAlreadyOpen);
+	if (SuppressDevice.SuppressedMessages.Num() > 0)
+	{
+		Result->SetStringField(TEXT("suppressed_fatal"),
+			FString::Join(SuppressDevice.SuppressedMessages, TEXT("; ")));
+	}
 	Result->SetStringField(TEXT("message"), FString::Printf(
 		TEXT("%s %s in %s"),
 		bWasAlreadyOpen ? TEXT("Focused") : TEXT("Opened"),

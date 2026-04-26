@@ -60,6 +60,28 @@ UClass* UModifyInterfaceTool::ResolveInterfaceClass(const FString& InterfaceClas
 	{
 		UObject* Loaded = StaticLoadObject(UClass::StaticClass(), nullptr, *InterfaceClassStr);
 		InterfaceClass = Cast<UClass>(Loaded);
+
+		// If that failed, the caller may have passed a game asset path without the
+		// generated-class suffix (e.g. /Game/Path/BPI_Name instead of
+		// /Game/Path/BPI_Name.BPI_Name_C).  Try constructing the _C path ourselves.
+		if (!InterfaceClass)
+		{
+			FString ShortName = FPackageName::GetShortName(InterfaceClassStr);
+			FString ClassPath = InterfaceClassStr + TEXT(".") + ShortName + TEXT("_C");
+			UObject* Loaded2 = StaticLoadObject(UClass::StaticClass(), nullptr, *ClassPath);
+			InterfaceClass = Cast<UClass>(Loaded2);
+		}
+
+		// Last resort for full paths: load as Blueprint and get its GeneratedClass.
+		if (!InterfaceClass)
+		{
+			UBlueprint* BP = Cast<UBlueprint>(
+				StaticLoadObject(UBlueprint::StaticClass(), nullptr, *InterfaceClassStr));
+			if (BP && BP->GeneratedClass)
+			{
+				InterfaceClass = BP->GeneratedClass;
+			}
+		}
 	}
 
 	// Try as short class name — search with _C suffix if needed

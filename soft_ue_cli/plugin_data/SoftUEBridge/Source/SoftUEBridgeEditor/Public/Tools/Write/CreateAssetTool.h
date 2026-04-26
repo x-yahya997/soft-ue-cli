@@ -60,6 +60,7 @@ private:
 	UObject* CreateWidgetBlueprint(const FString& PackagePath, const FString& AssetName, IAssetTools& AssetTools, TSharedPtr<FJsonObject>& Result, FString& OutError);
 	UObject* CreateAnimBlueprint(const FString& AssetPath, const FString& AssetName, const FString& SkeletonPath, TSharedPtr<FJsonObject>& Result, FString& OutError);
 	UObject* CreateAnimLayerInterface(const FString& AssetPath, const FString& AssetName, const FString& SkeletonPath, TSharedPtr<FJsonObject>& Result, FString& OutError);
+	UObject* CreateBlueprintInterface(const FString& AssetPath, const FString& AssetName, TSharedPtr<FJsonObject>& Result, FString& OutError);
 	UObject* CreateDataAsset(const FString& AssetPath, const FString& AssetName, UClass* DataAssetClass, FString& OutError);
 	UObject* CreateGenericAsset(const FString& AssetPath, const FString& AssetName, UClass* AssetClass, IAssetTools& AssetTools, FString& OutError);
 	UObject* CreateLevelFromTemplate(const FString& PackagePath, const FString& AssetName, const FString& AssetPath, const FString& TemplatePath, FString& OutError);

@@ -2,6 +2,18 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.14.0] - 2026-04-07
+
+### Fixed
+- `pie-session start` timed out after 30 s even when a longer timeout was requested — the tool's server-side `WaitForPIEReady` has its own `timeout` argument (default 30 s); the test now passes it explicitly so PIE gets the full allotted time
+- `open-asset` for World assets crashed the editor with "World Memory Leaks: 1 leaked objects" (triggered by Niagara holding a world reference during level switch) — fatal error is now suppressed via a custom `FOutputDeviceError` device for the duration of `OpenEditorForAsset`, allowing the world switch to complete and Niagara to update its reference normally on the next tick
+- `modify-interface`: interface class paths like `/Game/Path/BPI_Name` now resolve correctly; the tool tries the `_C`-suffixed class path and Blueprint `GeneratedClass` fallback when the initial load fails
+
+### Added
+- `test-tools` skill v2.0 — `--mode cli` (default, direct HTTP), `--mode mcp` (via `mcp-serve` stdio), `--mode all` (runs both and combines report); MCP mode exercises the full MCP server layer without any LLM in the loop
+- `call_tool()` now accepts an optional `timeout` parameter to override the per-request HTTP timeout (falls back to `SOFT_UE_BRIDGE_TIMEOUT` env var or 30 s)
+- Plugin: Windows Structured Exception handling (SEH) in the bridge root — unhandled C++ exceptions from tools are caught and returned as JSON-RPC errors instead of crashing the editor
+
 ## [1.13.0] - 2026-04-06
 
 ### Fixed
