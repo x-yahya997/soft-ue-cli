@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import sys
 
-from .github import create_discussion
+from .github import create_issue
 
 
 def _get_metadata() -> tuple[str, int, list[str]]:
@@ -30,7 +31,7 @@ def _get_metadata() -> tuple[str, int, list[str]]:
     return cli_version, streak, top_tools
 
 
-def _build_discussion_body(
+def _build_issue_body(
     message: str,
     agent_name: str | None,
     rating: int | None,
@@ -38,7 +39,7 @@ def _build_discussion_body(
     streak: int,
     top_tools: list[str],
 ) -> str:
-    """Build the markdown body for the GitHub Discussion."""
+    """Build the markdown body for the GitHub Issue."""
     attribution = agent_name or "Anonymous"
     sections = [f"> {message}\n\n\\— {attribution}"]
 
@@ -65,7 +66,7 @@ def cmd_submit_testimonial(args) -> None:
             )
             sys.exit(1)
 
-        answer = input("Post this testimonial to GitHub Discussions? [y/N] ").strip().lower()
+        answer = input("Post this testimonial as a GitHub Issue? [y/N] ").strip().lower()
         if answer != "y":
             print("Testimonial not sent.", file=sys.stderr)
             return
@@ -73,7 +74,7 @@ def cmd_submit_testimonial(args) -> None:
     cli_version, streak, top_tools = _get_metadata()
 
     title = f"Testimonial from {args.agent_name}" if args.agent_name else "Testimonial"
-    body = _build_discussion_body(
+    body = _build_issue_body(
         message=args.message,
         agent_name=args.agent_name,
         rating=args.rating,
@@ -82,7 +83,5 @@ def cmd_submit_testimonial(args) -> None:
         top_tools=top_tools,
     )
 
-    result = create_discussion(title, body, "Testimonials")
-
-    import json
+    result = create_issue(title, body, ["testimonial"])
     print(json.dumps(result, indent=2, ensure_ascii=False))

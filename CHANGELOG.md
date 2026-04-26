@@ -2,6 +2,16 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.12.0] - 2026-04-06
+
+### Fixed
+- `mcp-serve`: tool arguments were silently dropped — MCP client now receives the correct JSON schema for every tool and arguments are forwarded to the bridge as expected
+- `mcp-serve`: `class-hierarchy` and `project-info` routed to wrong bridge tool name, always returning "Unknown tool"
+- `mcp-serve`: `status`, `check-setup`, `setup`, `report-bug`, `request-feature`, `submit-testimonial` returned "Unknown tool" because they are client-side operations; they now run their existing handlers directly and return output to the MCP client
+
+### Changed
+- `submit-testimonial` now posts via REST API instead of GitHub Discussions GraphQL
+
 ## [1.11.1] - 2026-04-06
 
 ### Fixed

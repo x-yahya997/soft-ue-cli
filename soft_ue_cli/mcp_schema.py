@@ -10,6 +10,17 @@ EXCLUDED_COMMANDS: frozenset[str] = frozenset({
     "mcp-serve",
 })
 
+# Commands executed client-side (no bridge call). Their existing cmd_* handlers
+# are invoked directly by the MCP server instead of being forwarded to the bridge.
+CLIENT_SIDE_COMMANDS: frozenset[str] = frozenset({
+    "status",
+    "check-setup",
+    "setup",
+    "report-bug",
+    "submit-testimonial",
+    "request-feature",
+})
+
 # Per-tool schema overrides. Merged into auto-generated schemas after extraction.
 # Use to add pattern constraints, refine descriptions, or mark extra required fields.
 TOOL_OVERRIDES: dict[str, dict[str, Any]] = {
@@ -131,6 +142,7 @@ def extract_tools() -> list[dict[str, Any]]:
             "name": cmd_name,
             "description": sub_parser.description or choice_help.get(cmd_name, sub_parser.prog),
             "parameters": params,
+            "func": sub_parser.get_default("func"),
         })
 
     return tools
