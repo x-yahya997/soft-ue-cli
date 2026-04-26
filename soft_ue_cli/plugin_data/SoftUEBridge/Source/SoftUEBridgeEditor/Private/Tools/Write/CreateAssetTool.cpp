@@ -69,6 +69,12 @@ TMap<FString, FBridgeSchemaProperty> UCreateAssetTool::GetInputSchema() const
 	RowStruct.bRequired = false;
 	Schema.Add(TEXT("row_struct"), RowStruct);
 
+	FBridgeSchemaProperty TemplateProp;
+	TemplateProp.Type = TEXT("string");
+	TemplateProp.Description = TEXT("Template level path for World assets. Duplicates the template instead of creating a blank level (e.g., '/Game/Maps/LV_Template')");
+	TemplateProp.bRequired = false;
+	Schema.Add(TEXT("template_path"), TemplateProp);
+
 	return Schema;
 }
 
@@ -86,6 +92,7 @@ FBridgeToolResult UCreateAssetTool::Execute(
 	FString ParentClass = GetStringArgOrDefault(Arguments, TEXT("parent_class"));
 	FString Skeleton = GetStringArgOrDefault(Arguments, TEXT("skeleton"));
 	FString RowStruct = GetStringArgOrDefault(Arguments, TEXT("row_struct"));
+	FString TemplatePath = GetStringArgOrDefault(Arguments, TEXT("template_path"));
 
 	// Dedicated --skeleton flag takes priority over --parent-class for AnimBlueprints
 	FString LowerClass = AssetClass.ToLower();
@@ -155,7 +162,11 @@ FBridgeToolResult UCreateAssetTool::Execute(
 	UClass* ResolvedClass = FBridgePropertySerializer::ResolveClass(AssetClass, ClassError);
 
 	// Special handling for known asset types that need factories
-	if (ResolvedClass)
+	if (!TemplatePath.IsEmpty() && (LowerClass == TEXT("world") || LowerClass == TEXT("level") || LowerClass == TEXT("map")))
+	{
+		CreatedAsset = CreateLevelFromTemplate(PackagePath, AssetName, AssetPath, TemplatePath, ClassError);
+	}
+	else if (ResolvedClass)
 	{
 		CreatedAsset = CreateAssetOfClass(ResolvedClass, AssetPath, PackagePath, AssetName, ParentClass, RowStruct, AssetTools, Result, ClassError);
 	}
@@ -599,4 +610,23 @@ UObject* UCreateAssetTool::CreateGenericAsset(
 	}
 
 	return NewAsset;
+}
+
+UObject* UCreateAssetTool::CreateLevelFromTemplate(
+	const FString& PackagePath,
+	const FString& AssetName,
+	const FString& AssetPath,
+	const FString& TemplatePath,
+	FString& OutError)
+{
+	// Duplicate the template level to the new path
+	UObject* DuplicatedAsset = UEditorAssetLibrary::DuplicateAsset(TemplatePath, AssetPath);
+	if (!DuplicatedAsset)
+	{
+		OutError = FString::Printf(TEXT("Failed to duplicate template level '%s' to '%s'. Ensure the template exists and is a valid level."), *TemplatePath, *AssetPath);
+		return nullptr;
+	}
+
+	UE_LOG(LogSoftUEBridgeEditor, Log, TEXT("create-asset: Duplicated level from template '%s' to '%s'"), *TemplatePath, *AssetPath);
+	return DuplicatedAsset;
 }

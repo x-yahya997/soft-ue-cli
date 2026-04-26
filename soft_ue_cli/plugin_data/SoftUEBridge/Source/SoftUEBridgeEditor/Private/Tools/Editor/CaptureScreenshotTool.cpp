@@ -15,6 +15,7 @@
 #include "Tools/BridgeToolRegistry.h"
 #include "Widgets/SWindow.h"
 #include "SoftUEBridgeEditorModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 TMap<FString, FBridgeSchemaProperty> UCaptureScreenshotTool::GetInputSchema() const
 {
@@ -130,13 +131,27 @@ FBridgeToolResult UCaptureScreenshotTool::CaptureViewport(const FString& Format,
 
 FBridgeToolResult UCaptureScreenshotTool::CaptureWindow(const FString& Format, const FString& OutputMode)
 {
-	TSharedPtr<SWindow> ActiveWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
-	if (!ActiveWindow.IsValid())
+	// Prefer the main editor window regardless of focus — agents call this tool
+	// without the editor being the active/foreground window.
+	TSharedPtr<SWindow> EditorWindow;
+	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
 	{
-		return FBridgeToolResult::Error(TEXT("No active editor window found"));
+		IMainFrameModule& MainFrame = FModuleManager::GetModuleChecked<IMainFrameModule>("MainFrame");
+		EditorWindow = MainFrame.GetParentWindow();
 	}
 
-	return CaptureFromWindow(ActiveWindow, Format, OutputMode);
+	// Fall back to the focused window (works in non-editor contexts)
+	if (!EditorWindow.IsValid())
+	{
+		EditorWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
+	}
+
+	if (!EditorWindow.IsValid())
+	{
+		return FBridgeToolResult::Error(TEXT("No editor window found"));
+	}
+
+	return CaptureFromWindow(EditorWindow, Format, OutputMode);
 }
 
 FBridgeToolResult UCaptureScreenshotTool::CaptureTab(
