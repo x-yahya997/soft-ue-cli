@@ -1261,42 +1261,6 @@ def cmd_knowledge(args: argparse.Namespace) -> None:
     """Query the optional knowledge server (RAG)."""
     print("Coming soon. Follow https://github.com/softdaddy-o/soft-ue-cli for updates.")
 
-    import httpx
-
-    server_url = os.environ.get("SOFT_UE_EXPERT_SERVER_URL", "http://localhost:8000")
-    api_key = os.environ.get("SOFT_UE_EXPERT_API_KEY", "dev")
-    headers = {"Authorization": f"Bearer {api_key}"}
-
-    try:
-        if args.list_skills:
-            resp = httpx.get(
-                f"{server_url}/query/skills",
-                headers=headers,
-                timeout=30.0,
-            )
-        else:
-            body: dict = {"query": args.query, "max_results": args.max_results}
-            if args.type:
-                body["type"] = args.type
-            resp = httpx.post(
-                f"{server_url}/query",
-                json=body,
-                headers=headers,
-                timeout=30.0,
-            )
-        resp.raise_for_status()
-        _print_json(resp.json())
-    except httpx.ConnectError:
-        print(
-            f"error: cannot connect to knowledge server at {server_url}\n"
-            "Start the knowledge server with: docker compose up",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    except httpx.HTTPStatusError as exc:
-        print(f"error: HTTP {exc.response.status_code}", file=sys.stderr)
-        sys.exit(1)
-
 
 def cmd_skills(args: argparse.Namespace) -> None:
     from .skills import get_skill, list_skills

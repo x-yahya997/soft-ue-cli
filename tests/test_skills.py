@@ -1,10 +1,10 @@
-"""Tests for cli/soft_ue_cli/skills ??skill discovery and retrieval."""
+"""Tests for cli/soft_ue_cli/skills — skill discovery and retrieval."""
 
 from __future__ import annotations
 
+from pathlib import Path
 
 import pytest
-
 
 from soft_ue_cli.skills import get_skill, list_skills
 from soft_ue_cli.__main__ import build_parser, cmd_skills
@@ -68,7 +68,7 @@ def test_test_tools_contains_config_suite():
     # CLI subcommands
     assert 'run_cli("config tree"' in content
     assert 'run_cli("config get search"' in content
-    assert 'run_cli("config set project default"' in content
+    assert 'run_cli("config set user layer"' in content
     assert 'run_cli("config diff audit"' in content
     assert 'run_cli("config audit"' in content
     assert "OfflineSearchKey_" in content
