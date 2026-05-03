@@ -1,10 +1,9 @@
-"""Tests for cli/soft_ue_cli/mcp_schema.py — argparse to MCP tool schema conversion."""
+"""Tests for cli/soft_ue_cli/mcp_schema.py ??argparse to MCP tool schema conversion."""
 
 from __future__ import annotations
 
 
 import pytest
-
 
 from soft_ue_cli.mcp_schema import CLIENT_SIDE_COMMANDS, EXCLUDED_COMMANDS, extract_tools
 
@@ -39,6 +38,8 @@ def test_extract_tools_contains_known_command():
     assert "regenerate-co-node-pins" in tool_names
     assert "compile-co" in tool_names
     assert "remove-co-node" in tool_names
+    assert "wire-customizable-object-slot-from-table" in tool_names
+    assert "reload-bridge-module" in tool_names
     assert "inspect-uasset" in tool_names
     assert "diff-uasset" in tool_names
     assert "status" in tool_names
@@ -105,6 +106,11 @@ def test_customizable_object_edit_schema_uses_native_json_types():
 
     connect_pins = next(t for t in tools if t["name"] == "connect-co-pins")
     assert connect_pins["parameters"]["properties"]["auto_regenerate"]["type"] == "boolean"
+
+    slot_macro = next(t for t in tools if t["name"] == "wire-customizable-object-slot-from-table")
+    slot_params = slot_macro["parameters"]["properties"]
+    assert slot_params["filter_values"]["type"] == "array"
+    assert slot_params["node_position"]["type"] == "array"
 
 
 def test_customizable_object_convenience_commands_run_client_side_for_mcp():

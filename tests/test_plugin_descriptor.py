@@ -132,6 +132,48 @@ def test_customizable_object_connect_auto_regenerates_missing_pins_before_error(
     assert "pin not found after regenerate" in source.lower()
 
 
+def test_live_coding_reflected_header_check_can_scope_to_module_or_plugin():
+    source = _plugin_source_path(
+        "Source/SoftUEBridgeEditor/Private/Tools/Build/TriggerLiveCodingTool.cpp"
+    ).read_text(encoding="utf-8")
+    header = _plugin_source_path(
+        "Source/SoftUEBridgeEditor/Public/Tools/Build/TriggerLiveCodingTool.h"
+    ).read_text(encoding="utf-8")
+
+    assert 'Schema.Add(TEXT("module")' in source
+    assert 'Schema.Add(TEXT("plugin")' in source
+    assert "IsHeaderPathInLiveCodingScope" in source
+    assert "DetectReflectedHeaderChanges(RiskyHeaders, ModuleScope, PluginScope)" in source
+    assert 'FString(TEXT("Plugins/")) + PluginScope' in source
+    assert 'FString(TEXT("Source/")) + ModuleScope' in source
+    assert "DetectReflectedHeaderChanges(TArray<FString>& OutFiles, const FString& ModuleScope, const FString& PluginScope)" in header
+
+
+def test_bridge_reload_tool_is_runtime_registered_and_cleans_editor_tools():
+    runtime_module = _plugin_source_path(
+        "Source/SoftUEBridge/Private/SoftUEBridgeModule.cpp"
+    ).read_text(encoding="utf-8")
+    registry_header = _plugin_source_path(
+        "Source/SoftUEBridge/Public/Tools/BridgeToolRegistry.h"
+    ).read_text(encoding="utf-8")
+    registry_source = _plugin_source_path(
+        "Source/SoftUEBridge/Private/Tools/BridgeToolRegistry.cpp"
+    ).read_text(encoding="utf-8")
+    reload_source = _plugin_source_path(
+        "Source/SoftUEBridge/Private/Tools/ReloadBridgeModuleTool.cpp"
+    ).read_text(encoding="utf-8")
+
+    assert "UReloadBridgeModuleTool" in runtime_module
+    assert "reload-bridge-module" in reload_source
+    assert "SoftUEBridgeEditor" in reload_source
+    assert "SoftUEBridge runtime module cannot reload itself" in reload_source
+    assert "RemoveToolsForModule" in registry_header
+    assert "ToolModuleNames" in registry_header
+    assert "RemoveToolsForModule" in registry_source
+    assert "UnloadModule" in reload_source
+    assert "LoadModuleWithFailureReason" in reload_source
+
+
 def test_customizable_object_remove_tool_is_registered():
     header = _plugin_source_path(
         "Source/SoftUEBridgeEditor/Public/Tools/Asset/EditCustomizableObjectGraphTool.h"
@@ -144,6 +186,42 @@ def test_customizable_object_remove_tool_is_registered():
     assert "URemoveCustomizableObjectNodeTool" in module
 
 
+def test_customizable_object_slot_wiring_macro_is_registered_and_wires_expected_chain():
+    header = _plugin_source_path(
+        "Source/SoftUEBridgeEditor/Public/Tools/Asset/EditCustomizableObjectGraphTool.h"
+    ).read_text(encoding="utf-8")
+    module = _plugin_source_path(
+        "Source/SoftUEBridgeEditor/Private/SoftUEBridgeEditorModule.cpp"
+    ).read_text(encoding="utf-8")
+    source = _plugin_source_path(
+        "Source/SoftUEBridgeEditor/Private/Tools/Asset/EditCustomizableObjectGraphTool.cpp"
+    ).read_text(encoding="utf-8")
+
+    assert "wire-customizable-object-slot-from-table" in header
+    assert "UWireCustomizableObjectSlotFromTableTool" in module
+    assert "CustomizableObjectNodeTable" in source
+    assert "CustomizableObjectNodeMaterial" in source
+    assert "CONodeMaterialConstant" in source
+    assert 'SetArrayField(TEXT("CompilationFilterOptions")' in source
+    assert "OperationType" in source
+    assert "TCFOT_OR" in source
+    assert "TCFOT_AND" in source
+    assert 'SetStringField(TEXT("FilterOperation")' not in source
+    assert "material_assignment_mode" in source
+    assert "material_node_property" in source
+    assert "Mesh LOD_%d Mat_%d" in source
+    assert "Mesh_Input_Pin" in source
+    assert "Material_Input_Pin" in source
+    assert "Mesh Section_Output_Pin" in source
+    assert "created_edges" in source
+
+
+def test_live_smoke_skill_expects_slot_wiring_macro():
+    content = (_repo_root() / "soft_ue_cli" / "skills" / "test-tools.md").read_text(encoding="utf-8")
+
+    assert "wire-customizable-object-slot-from-table" in content
+
+
 def test_datatable_row_tool_uses_field_level_bridge_deserializer():
     source = _plugin_source_path(
         "Source/SoftUEBridgeEditor/Private/Tools/Write/AddDataTableRowTool.cpp"
@@ -152,3 +230,14 @@ def test_datatable_row_tool_uses_field_level_bridge_deserializer():
     assert 'TryGetObjectField(TEXT("row_data")' in source
     assert "DeserializePropertyValue" in source
     assert "failed_fields" in source
+
+
+def test_editor_screenshot_compression_validates_dimensions_and_pixel_count():
+    source = _plugin_source_path(
+        "Source/SoftUEBridgeEditor/Private/Tools/Editor/CaptureScreenshotTool.cpp"
+    ).read_text(encoding="utf-8")
+
+    assert "Width <= 0 || Height <= 0" in source
+    assert "const int64 ExpectedPixelCount" in source
+    assert "RawData.Num() != ExpectedPixelCount" in source
+    assert "ExpectedPixelCount * 4" in source

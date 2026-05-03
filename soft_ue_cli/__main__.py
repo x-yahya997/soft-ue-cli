@@ -596,6 +596,41 @@ def cmd_remove_co_node(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_wire_co_slot_from_table(args: argparse.Namespace) -> None:
+    filter_values: list[str] = []
+    for value in getattr(args, "filter_value", None) or []:
+        filter_values.extend(part.strip() for part in str(value).split(",") if part.strip())
+    raw_filter_values = getattr(args, "filter_values", None)
+    if raw_filter_values:
+        if isinstance(raw_filter_values, list):
+            filter_values.extend(str(part).strip() for part in raw_filter_values if str(part).strip())
+        else:
+            filter_values.extend(part.strip() for part in str(raw_filter_values).split(",") if part.strip())
+
+    if not filter_values:
+        print("error: provide at least one --filter-value or --filter-values entry", file=sys.stderr)
+        sys.exit(1)
+
+    arguments: dict = {
+        "asset_path": args.asset_path,
+        "parameter_name": args.parameter_name,
+        "data_table_path": args.data_table_path,
+        "filter_column": args.filter_column,
+        "filter_values": filter_values,
+        "filter_operation": args.filter_operation,
+        "material_asset": args.material_asset,
+        "component_mesh_node": args.component_mesh_node,
+        "lod_index": args.lod_index,
+        "material_index": args.material_index,
+    }
+    node_position = _parse_optional_int_list(getattr(args, "node_position", None))
+    if node_position is not None:
+        arguments["node_position"] = node_position
+    if getattr(args, "add_none_option", False):
+        arguments["add_none_option"] = True
+    _print_json(_run_tool("wire-customizable-object-slot-from-table", arguments))
+
+
 def cmd_get_asset_diff(args: argparse.Namespace) -> None:
     arguments: dict = {"asset_path": args.asset_path}
     if args.scm_type:
@@ -801,13 +836,20 @@ def cmd_build_and_relaunch(args: argparse.Namespace) -> None:
         _print_json(result)
         return
 
-    _wait_for_build_and_relaunch(result, skip_relaunch=args.skip_relaunch)
+    _wait_for_build_and_relaunch(
+        result,
+        skip_relaunch=args.skip_relaunch,
+        startup_recovery=args.startup_recovery,
+        remember_startup_recovery=args.remember_startup_recovery,
+    )
 
 
 def _wait_for_build_and_relaunch(
     initiation_result: dict,
     *,
     skip_relaunch: bool,
+    startup_recovery: str | None = "ask",
+    remember_startup_recovery: bool | None = None,
     poll_interval: float = 3.0,
     build_timeout: float = 600.0,
     relaunch_timeout: float = 120.0,
@@ -818,6 +860,7 @@ def _wait_for_build_and_relaunch(
     from pathlib import Path
 
     from .client import health_check
+    from .startup_recovery import StartupRecoveryBlocked, handle_startup_recovery_prompt
 
     status_path = Path(initiation_result.get("build_status_path", ""))
     log_path = Path(initiation_result.get("build_log_path", ""))
@@ -901,6 +944,21 @@ def _wait_for_build_and_relaunch(
                 "message": f"Build succeeded and editor is ready ({total:.0f}s total).",
             })
             return
+        try:
+            handle_startup_recovery_prompt(
+                startup_recovery,
+                remember=remember_startup_recovery,
+                output=sys.stderr,
+            )
+        except StartupRecoveryBlocked as exc:
+            _print_json({
+                "success": False,
+                "status": "startup_recovery_prompt_blocked",
+                "build_time_seconds": round(build_elapsed, 1),
+                "total_time_seconds": round(time.monotonic() - start, 1),
+                "message": str(exc),
+            })
+            sys.exit(1)
 
     total = time.monotonic() - start
     _print_json({
@@ -918,7 +976,16 @@ def cmd_trigger_live_coding(args: argparse.Namespace) -> None:
         arguments["wait_for_completion"] = True
     if args.allow_header_changes:
         arguments["allow_header_changes"] = True
+    if args.module:
+        arguments["module"] = args.module
+    if args.plugin:
+        arguments["plugin"] = args.plugin
     _print_json(_run_tool("trigger-live-coding", arguments))
+
+
+def cmd_reload_bridge_module(args: argparse.Namespace) -> None:
+    arguments: dict = {"module": args.module}
+    _print_json(_run_tool("reload-bridge-module", arguments))
 
 
 def cmd_capture_screenshot(args: argparse.Namespace) -> None:
@@ -2972,6 +3039,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_rco.add_argument("node", help="Node GUID, name, path, or title")
     p_rco.set_defaults(func=cmd_remove_co_node)
 
+    p_wcst = sub.add_parser(
+        "wire-customizable-object-slot-from-table",
+        help="Create and wire a CustomizableObject NodeTable -> Material -> ComponentMesh slot chain.",
+        description=(
+            "Creates a NodeTable, Material node, and material constant node, regenerates their pins,\n"
+            "then wires the slot chain into an existing ComponentMesh node.\n\n"
+            "EXAMPLE:\n"
+            "  soft-ue-cli wire-customizable-object-slot-from-table /Game/Characters/CO_Hero.CO_Hero Boots \\\n"
+            "    /Game/Data/DT_Equipment.DT_Equipment Slot /Game/Materials/M_Boots.M_Boots ComponentMesh_0 \\\n"
+            "    --filter-value Boots --lod-index 0"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_wcst.add_argument("asset_path", help="CustomizableObject asset path")
+    p_wcst.add_argument("parameter_name", help="NodeTable ParameterName and slot identifier")
+    p_wcst.add_argument("data_table_path", help="DataTable asset path")
+    p_wcst.add_argument("filter_column", help="DataTable column used by the NodeTable filter")
+    p_wcst.add_argument("material_asset", help="UMaterialInterface asset path")
+    p_wcst.add_argument("component_mesh_node", help="Existing ComponentMesh node GUID, name, path, or title")
+    p_wcst.add_argument("--filter-value", action="append", help="Filter value; repeat for multiple values")
+    p_wcst.add_argument("--filter-values", help="Comma-separated filter values")
+    p_wcst.add_argument("--filter-operation", choices=["OR", "AND"], default="OR", help="Filter operation (default: OR)")
+    p_wcst.add_argument("--lod-index", type=int, default=0, help="LOD index to wire (default: 0)")
+    p_wcst.add_argument("--material-index", type=int, default=0, help="Material slot index for NodeTable pin names")
+    p_wcst.add_argument("--node-position", help="NodeTable position as X,Y")
+    p_wcst.add_argument("--add-none-option", action="store_true", help="Set bAddNoneOption on the NodeTable")
+    p_wcst.set_defaults(func=cmd_wire_co_slot_from_table)
+
     p_gad = sub.add_parser(
         "get-asset-diff",
         help="Show SCM diff for an asset (git or Perforce).",
@@ -3109,6 +3204,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bar.add_argument("--skip-relaunch", action="store_true", help="Build only, do not relaunch the editor")
     p_bar.add_argument("--wait", action="store_true", help="Wait for build to complete and editor to relaunch, then return the result")
+    p_bar.add_argument(
+        "--startup-recovery",
+        choices=["ask", "remembered", "recover", "skip", "manual"],
+        default="ask",
+        help=(
+            "How to handle Unreal's startup recovery prompt while waiting for relaunch "
+            "(default: ask; uses a remembered project choice when available)"
+        ),
+    )
+    p_bar.add_argument(
+        "--remember-startup-recovery",
+        action="store_true",
+        default=None,
+        help="Persist the selected startup recovery behavior in the project's .soft-ue-bridge/settings.json",
+    )
     p_bar.set_defaults(func=cmd_build_and_relaunch)
 
     p_tlc = sub.add_parser(
@@ -3121,6 +3231,7 @@ def build_parser() -> argparse.ArgumentParser:
             "(success, failure, cancelled, etc.). Use --no-wait for fire-and-forget.\n\n"
             "EXAMPLES:\n"
             "  soft-ue-cli trigger-live-coding\n"
+            "  soft-ue-cli trigger-live-coding --module SoftUEBridgeEditor --plugin SoftUEBridge\n"
             "  soft-ue-cli trigger-live-coding --no-wait"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -3131,7 +3242,28 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Bypass reflected-header safety check and trigger Live Coding anyway",
     )
+    p_tlc.add_argument("--module", help="Limit reflected-header safety checks to a module, e.g. SoftUEBridgeEditor")
+    p_tlc.add_argument("--plugin", help="Limit reflected-header safety checks to a plugin directory, e.g. SoftUEBridge")
     p_tlc.set_defaults(func=cmd_trigger_live_coding)
+
+    p_rbm = sub.add_parser(
+        "reload-bridge-module",
+        help="Unload and reload a SoftUEBridge plugin module from disk.",
+        description=(
+            "Reloads a bridge plugin module without a full editor restart. The default\n"
+            "module is SoftUEBridgeEditor so the runtime HTTP server stays alive.\n\n"
+            "EXAMPLES:\n"
+            "  soft-ue-cli reload-bridge-module\n"
+            "  soft-ue-cli reload-bridge-module --module SoftUEBridgeEditor"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_rbm.add_argument(
+        "--module",
+        default="SoftUEBridgeEditor",
+        help="Module to reload (default: SoftUEBridgeEditor)",
+    )
+    p_rbm.set_defaults(func=cmd_reload_bridge_module)
 
     # -------------------------------------------------------------------------
     # Editor tools — Editor

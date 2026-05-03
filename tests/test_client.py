@@ -1,13 +1,14 @@
-"""Tests for cli/soft_ue_cli/client.py — uses httpx mock transport."""
+"""Tests for cli/soft_ue_cli/client.py ??uses httpx mock transport."""
 
 from __future__ import annotations
 
 import json
+import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
 import pytest
-
 
 from soft_ue_cli import client as client_mod
 from soft_ue_cli.client import call_tool, health_check
@@ -88,6 +89,49 @@ def test_call_tool_connect_error(monkeypatch):
         with pytest.raises(BridgeError) as exc:
             call_tool("status", {})
     assert "cannot connect to SoftUEBridge" in str(exc.value)
+
+
+def test_call_tool_handles_remembered_startup_recovery_and_retries(monkeypatch):
+    calls = 0
+
+    def maybe_connect(*args, **kw):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise httpx.ConnectError("refused")
+        return _resp(200, {"jsonrpc": "2.0", "id": "1", "result": {"content": [{"type": "text", "text": "{}"}]}})
+
+    handled: list[str | None] = []
+    monkeypatch.setattr(httpx, "post", maybe_connect)
+    monkeypatch.setattr(
+        client_mod,
+        "_handle_startup_recovery_for_connection",
+        lambda: handled.append("handled") or "handled startup recovery prompt",
+    )
+    with _patch_url():
+        result = call_tool("status", {})
+
+    assert result == {}
+    assert calls == 2
+    assert handled == ["handled"]
+
+
+def test_connection_recovery_prompts_interactive_user(monkeypatch):
+    import soft_ue_cli.startup_recovery as startup_recovery
+
+    calls: list[tuple[str, bool | None]] = []
+
+    def fake_recovery(action, *, interactive=None):
+        calls.append((action, interactive))
+        return SimpleNamespace(action="recover")
+
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(startup_recovery, "handle_startup_recovery_prompt", fake_recovery)
+
+    note = client_mod._handle_startup_recovery_for_connection()
+
+    assert note == "handled Unreal startup recovery prompt with action 'recover'"
+    assert calls == [("ask", True)]
 
 
 def test_call_tool_http_error(monkeypatch):

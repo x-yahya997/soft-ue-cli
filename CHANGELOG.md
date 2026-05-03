@@ -2,6 +2,18 @@
 
 All notable changes to soft-ue-cli will be documented in this file.
 
+## [1.28.0] - 2026-05-03
+
+### Added
+- New `reload-bridge-module` command and bridge tool reload the bridge editor module from the rebuilt DLL on disk without a full editor restart
+- New `wire-customizable-object-slot-from-table` command and bridge tool create a NodeTable -> Material -> ComponentMesh slot chain in one call
+- `build-and-relaunch --wait` can now detect Unreal startup recovery prompts and apply, ask for, or remember recover/skip/manual handling
+- `trigger-live-coding` now supports `--module` and `--plugin` scope filters so unrelated reflected header edits do not block bridge-only Live Coding attempts
+
+### Fixed
+- `capture-screenshot` now validates captured image dimensions and pixel count before compression to avoid editor crashes from invalid buffers
+- Normal CLI bridge reconnects can now handle visible Unreal startup recovery prompts using a remembered or interactive choice
+
 ## [1.27.0] - 2026-05-03
 
 ### Added

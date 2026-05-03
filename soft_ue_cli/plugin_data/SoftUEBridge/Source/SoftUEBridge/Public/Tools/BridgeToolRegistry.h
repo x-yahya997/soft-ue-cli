@@ -21,6 +21,7 @@ public:
 	}
 
 	void RegisterToolClass(UClass* ToolClass);
+	int32 RemoveToolsForModule(const FString& ModuleName);
 	void ClearAllTools();
 
 	TArray<FBridgeToolDefinition> GetAllToolDefinitions() const;
@@ -42,6 +43,7 @@ private:
 
 	TMap<FString, UClass*> ToolClasses;
 	TMap<FString, TObjectPtr<UBridgeToolBase>> ToolInstances; // instances are AddToRoot'd to prevent GC
+	TMap<FString, FString> ToolModuleNames;
 	mutable FCriticalSection Lock;
 
 	static FBridgeToolRegistry* Instance;

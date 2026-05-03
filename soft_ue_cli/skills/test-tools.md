@@ -359,12 +359,14 @@ def _run_single_mode(mode_name: str, caller) -> list[dict]:
             ok, err = False, str(exc)[:300]
         _record("bridge health check", "health_check", {}, ok, int((time.time() - t0) * 1000), err)
         expected_co_tools = {
+            "reload-bridge-module",
             "add-customizable-object-node",
             "set-customizable-object-node-property",
             "connect-customizable-object-pins",
             "regenerate-customizable-object-node-pins",
             "compile-customizable-object",
             "remove-customizable-object-node",
+            "wire-customizable-object-slot-from-table",
         }
         tool_names = set(info.get("tool_names", [])) if isinstance(info, dict) else set()
         missing_co_tools = sorted(expected_co_tools - tool_names)

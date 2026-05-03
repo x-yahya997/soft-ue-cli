@@ -111,6 +111,12 @@ TOOL_OVERRIDES: dict[str, dict[str, Any]] = {
             "properties": {"type": "object", "description": "Reflected node properties to set"},
         },
     },
+    "wire-customizable-object-slot-from-table": {
+        "properties": {
+            "filter_values": {"type": "array", "description": "Array of DataTable filter values"},
+            "node_position": {"type": "array", "description": "[X, Y] node position"},
+        },
+    },
     "add-datatable-row": {
         "properties": {
             "row_data": {"type": "object", "description": "Row data keyed by row struct property name"},

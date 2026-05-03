@@ -13,6 +13,50 @@
 	#include "ILiveCodingModule.h"
 #endif
 
+#if PLATFORM_WINDOWS
+static FString NormalizeLiveCodingHeaderPath(FString RelativePath)
+{
+	RelativePath.ReplaceInline(TEXT("\\"), TEXT("/"));
+	while (RelativePath.ReplaceInline(TEXT("//"), TEXT("/")) > 0) {}
+	return RelativePath.TrimStartAndEnd();
+}
+
+static bool IsHeaderPathInLiveCodingScope(
+	const FString& RelativePath,
+	const FString& ModuleScope,
+	const FString& PluginScope)
+{
+	const FString NormalizedPath = NormalizeLiveCodingHeaderPath(RelativePath);
+	if (!PluginScope.IsEmpty())
+	{
+		const FString PluginPrefix = FString(TEXT("Plugins/")) + PluginScope + TEXT("/");
+		const FString PluginSegment = FString(TEXT("/")) + PluginPrefix;
+		const FString LegacyPluginPrefix = FString(TEXT("Plugin/")) + PluginScope + TEXT("/");
+		const FString LegacyPluginSegment = FString(TEXT("/")) + LegacyPluginPrefix;
+		if (!NormalizedPath.StartsWith(PluginPrefix, ESearchCase::IgnoreCase)
+			&& !NormalizedPath.Contains(PluginSegment, ESearchCase::IgnoreCase)
+			&& !NormalizedPath.StartsWith(LegacyPluginPrefix, ESearchCase::IgnoreCase)
+			&& !NormalizedPath.Contains(LegacyPluginSegment, ESearchCase::IgnoreCase))
+		{
+			return false;
+		}
+	}
+
+	if (!ModuleScope.IsEmpty())
+	{
+		const FString ModuleSourcePrefix = FString(TEXT("Source/")) + ModuleScope + TEXT("/");
+		const FString ModuleSourceSegment = FString(TEXT("/")) + ModuleSourcePrefix;
+		if (!NormalizedPath.StartsWith(ModuleSourcePrefix, ESearchCase::IgnoreCase)
+			&& !NormalizedPath.Contains(ModuleSourceSegment, ESearchCase::IgnoreCase))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+#endif
+
 FString UTriggerLiveCodingTool::GetToolDescription() const
 {
 	return TEXT("Trigger Live Coding compilation for C++ code changes. Supports synchronous mode with wait_for_completion. Windows only.");
@@ -34,6 +78,18 @@ TMap<FString, FBridgeSchemaProperty> UTriggerLiveCodingTool::GetInputSchema() co
 	AllowHeaderChanges.bRequired = false;
 	Schema.Add(TEXT("allow_header_changes"), AllowHeaderChanges);
 
+	FBridgeSchemaProperty ModuleScope;
+	ModuleScope.Type = TEXT("string");
+	ModuleScope.Description = TEXT("Limit reflected-header preflight checks to this module name, e.g. SoftUEBridgeEditor");
+	ModuleScope.bRequired = false;
+	Schema.Add(TEXT("module"), ModuleScope);
+
+	FBridgeSchemaProperty PluginScope;
+	PluginScope.Type = TEXT("string");
+	PluginScope.Description = TEXT("Limit reflected-header preflight checks to this plugin directory, e.g. SoftUEBridge");
+	PluginScope.bRequired = false;
+	Schema.Add(TEXT("plugin"), PluginScope);
+
 	return Schema;
 }
 
@@ -50,13 +106,19 @@ FBridgeToolResult UTriggerLiveCodingTool::Execute(
 	return FBridgeToolResult::Error(TEXT("Live Coding is only supported on Windows"));
 #else
 	const bool bAllowHeaderChanges = GetBoolArgOrDefault(Arguments, TEXT("allow_header_changes"), false);
+	const FString ModuleScope = GetStringArgOrDefault(Arguments, TEXT("module")).TrimStartAndEnd();
+	const FString PluginScope = GetStringArgOrDefault(Arguments, TEXT("plugin")).TrimStartAndEnd();
 	if (!bAllowHeaderChanges)
 	{
 		TArray<FString> RiskyHeaders;
-		if (DetectReflectedHeaderChanges(RiskyHeaders))
+		if (DetectReflectedHeaderChanges(RiskyHeaders, ModuleScope, PluginScope))
 		{
+			const FString ScopeMessage = (ModuleScope.IsEmpty() && PluginScope.IsEmpty())
+				? TEXT("")
+				: FString::Printf(TEXT(" within scope module='%s' plugin='%s'"), *ModuleScope, *PluginScope);
 			return FBridgeToolResult::Error(FString::Printf(
-				TEXT("trigger-live-coding: reflected header changes detected (%s). Live Coding will likely cancel; run build-and-relaunch instead or pass allow_header_changes=true."),
+				TEXT("trigger-live-coding: reflected header changes detected%s (%s). Live Coding will likely cancel; run build-and-relaunch instead or pass allow_header_changes=true."),
+				*ScopeMessage,
 				*FString::Join(RiskyHeaders, TEXT(", "))));
 		}
 	}
@@ -101,7 +163,10 @@ FBridgeToolResult UTriggerLiveCodingTool::Execute(
 }
 
 #if PLATFORM_WINDOWS
-bool UTriggerLiveCodingTool::DetectReflectedHeaderChanges(TArray<FString>& OutFiles) const
+bool UTriggerLiveCodingTool::DetectReflectedHeaderChanges(
+	TArray<FString>& OutFiles,
+	const FString& ModuleScope,
+	const FString& PluginScope) const
 {
 	OutFiles.Reset();
 
@@ -134,6 +199,11 @@ bool UTriggerLiveCodingTool::DetectReflectedHeaderChanges(TArray<FString>& OutFi
 			{
 				RelativePath = RelativePath.Mid(ArrowStart + 2).TrimStartAndEnd();
 			}
+		}
+		RelativePath = NormalizeLiveCodingHeaderPath(RelativePath);
+		if (!IsHeaderPathInLiveCodingScope(RelativePath, ModuleScope, PluginScope))
+		{
+			continue;
 		}
 
 		FString AbsolutePath = RelativePath;

@@ -1,14 +1,14 @@
-"""Tests for cli/soft_ue_cli/__main__.py — argument parsing and cmd_setup output."""
+"""Tests for cli/soft_ue_cli/__main__.py ??argument parsing and cmd_setup output."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 
 from soft_ue_cli.__main__ import (
     _SCRIPTS_DIR,
@@ -42,6 +42,7 @@ from soft_ue_cli.__main__ import (
     cmd_query_mpc,
     cmd_query_struct,
     cmd_release_asset_lock,
+    cmd_reload_bridge_module,
     cmd_run_python_script,
     cmd_save_script,
     cmd_setup,
@@ -49,6 +50,8 @@ from soft_ue_cli.__main__ import (
     cmd_set_co_node_property,
     cmd_connect_co_pins,
     cmd_validate_class_path,
+    cmd_trigger_live_coding,
+    cmd_wire_co_slot_from_table,
 )
 
 
@@ -176,10 +179,42 @@ def test_parser_get_console_var():
 
 def test_parser_build_and_relaunch_flags():
     parser = build_parser()
-    args = parser.parse_args(["build-and-relaunch", "--config", "Debug", "--skip-relaunch", "--wait"])
+    args = parser.parse_args([
+        "build-and-relaunch",
+        "--config",
+        "Debug",
+        "--skip-relaunch",
+        "--wait",
+        "--startup-recovery",
+        "skip",
+        "--remember-startup-recovery",
+    ])
     assert args.config == "Debug"
     assert args.skip_relaunch is True
     assert args.wait is True
+    assert args.startup_recovery == "skip"
+    assert args.remember_startup_recovery is True
+
+
+def test_parser_trigger_live_coding_scope_flags():
+    parser = build_parser()
+    args = parser.parse_args([
+        "trigger-live-coding",
+        "--module",
+        "SoftUEBridgeEditor",
+        "--plugin",
+        "SoftUEBridge",
+        "--no-wait",
+    ])
+    assert args.module == "SoftUEBridgeEditor"
+    assert args.plugin == "SoftUEBridge"
+    assert args.no_wait is True
+
+
+def test_parser_reload_bridge_module_defaults():
+    parser = build_parser()
+    args = parser.parse_args(["reload-bridge-module"])
+    assert args.module == "SoftUEBridgeEditor"
 
 
 def test_parser_get_logs_follow_args():
@@ -547,6 +582,44 @@ def test_cmd_build_and_relaunch_forwards_args(capsys):
     mock_run.assert_called_once_with(
         "build-and-relaunch",
         {"build_config": "Debug", "skip_relaunch": True},
+    )
+
+
+def test_cmd_trigger_live_coding_forwards_scope_args():
+    parser = build_parser()
+    args = parser.parse_args([
+        "trigger-live-coding",
+        "--module",
+        "SoftUEBridgeEditor",
+        "--plugin",
+        "SoftUEBridge",
+        "--allow-header-changes",
+    ])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_trigger_live_coding(args)
+
+    mock_run.assert_called_once_with(
+        "trigger-live-coding",
+        {
+            "wait_for_completion": True,
+            "allow_header_changes": True,
+            "module": "SoftUEBridgeEditor",
+            "plugin": "SoftUEBridge",
+        },
+    )
+
+
+def test_cmd_reload_bridge_module_forwards_module():
+    parser = build_parser()
+    args = parser.parse_args(["reload-bridge-module", "--module", "SoftUEBridgeEditor"])
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_reload_bridge_module(args)
+
+    mock_run.assert_called_once_with(
+        "reload-bridge-module",
+        {"module": "SoftUEBridgeEditor"},
     )
 
 
@@ -955,6 +1028,53 @@ def test_cmd_remove_co_node_forwards_node_reference():
     mock_run.assert_called_once_with(
         "remove-customizable-object-node",
         {"asset_path": "/Game/Characters/CO_Hero.CO_Hero", "node": "node-guid-1"},
+    )
+
+
+def test_cmd_wire_co_slot_from_table_forwards_macro_args():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "wire-customizable-object-slot-from-table",
+            "/Game/Characters/CO_Hero.CO_Hero",
+            "Boots",
+            "/Game/Data/DT_Equipment.DT_Equipment",
+            "Slot",
+            "/Game/Materials/M_Boots.M_Boots",
+            "ComponentMesh_0",
+            "--filter-value",
+            "Light",
+            "--filter-value",
+            "Heavy",
+            "--filter-operation",
+            "AND",
+            "--lod-index",
+            "1",
+            "--material-index",
+            "2",
+            "--node-position",
+            "100,200",
+        ]
+    )
+
+    with patch("soft_ue_cli.__main__._run_tool", return_value={"success": True}) as mock_run:
+        cmd_wire_co_slot_from_table(args)
+
+    mock_run.assert_called_once_with(
+        "wire-customizable-object-slot-from-table",
+        {
+            "asset_path": "/Game/Characters/CO_Hero.CO_Hero",
+            "parameter_name": "Boots",
+            "data_table_path": "/Game/Data/DT_Equipment.DT_Equipment",
+            "filter_column": "Slot",
+            "filter_values": ["Light", "Heavy"],
+            "filter_operation": "AND",
+            "material_asset": "/Game/Materials/M_Boots.M_Boots",
+            "component_mesh_node": "ComponentMesh_0",
+            "lod_index": 1,
+            "material_index": 2,
+            "node_position": [100, 200],
+        },
     )
 
 
@@ -1383,9 +1503,9 @@ def test_fix_msys_path_mangling():
     # Mangled by Git Bash
     assert _fix_msys_asset_path("C:/Program Files/Git/Game/Materials/M_Rock") == "/Game/Materials/M_Rock"
     assert _fix_msys_asset_path("C:/Program Files/Git/Engine/Content/Foo") == "/Engine/Content/Foo"
-    # Already correct — pass through
+    # Already correct ??pass through
     assert _fix_msys_asset_path("/Game/Materials/M_Rock") == "/Game/Materials/M_Rock"
-    # No mount point — pass through
+    # No mount point ??pass through
     assert _fix_msys_asset_path("some/local/path") == "some/local/path"
     # Empty/None
     assert _fix_msys_asset_path("") == ""

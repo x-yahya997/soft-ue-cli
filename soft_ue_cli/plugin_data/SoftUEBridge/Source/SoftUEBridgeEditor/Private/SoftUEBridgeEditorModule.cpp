@@ -125,6 +125,7 @@ void FSoftUEBridgeEditorModule::StartupModule()
 	Registry.RegisterToolClass<URegenerateCustomizableObjectNodePinsTool>();
 	Registry.RegisterToolClass<UCompileCustomizableObjectTool>();
 	Registry.RegisterToolClass<URemoveCustomizableObjectNodeTool>();
+	Registry.RegisterToolClass<UWireCustomizableObjectSlotFromTableTool>();
 	Registry.RegisterToolClass<UGetAssetDiffTool>();
 	Registry.RegisterToolClass<UGetAssetPreviewTool>();
 	Registry.RegisterToolClass<UInspectCustomizableObjectGraphTool>();

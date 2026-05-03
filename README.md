@@ -366,7 +366,8 @@ Requires the **Animation Insights (GameplayInsights)** plugin enabled in Edit > 
 | Command | Description |
 |---------|-------------|
 | `build-and-relaunch` | Trigger a full C++ rebuild and optionally relaunch the editor (`--wait` to monitor progress) |
-| `trigger-live-coding` | Trigger a Live Coding compile (hot reload); warns on risky reflected header changes |
+| `trigger-live-coding` | Trigger a Live Coding compile (hot reload); warns on risky reflected header changes, with optional module/plugin scope filters |
+| `reload-bridge-module` | Reload the bridge editor module from disk without a full editor restart |
 
 ### Skills (LLM Workflow Prompts)
 

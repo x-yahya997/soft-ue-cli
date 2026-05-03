@@ -48,8 +48,44 @@ void FBridgeToolRegistry::RegisterToolClass(UClass* ToolClass)
 	FScopeLock ScopeLock(&Lock);
 	ToolClasses.Add(ToolName, ToolClass);
 	ToolInstances.Add(ToolName, TempInstance);
+	FString ModuleName = ToolClass->GetOutermost() ? ToolClass->GetOutermost()->GetName() : TEXT("");
+	if (ModuleName.StartsWith(TEXT("/Script/")))
+	{
+		ModuleName = ModuleName.RightChop(8);
+	}
+	ToolModuleNames.Add(ToolName, ModuleName);
 
 	UE_LOG(LogSoftUEBridge, Log, TEXT("Registered tool: %s"), *ToolName);
+}
+
+int32 FBridgeToolRegistry::RemoveToolsForModule(const FString& ModuleName)
+{
+	FScopeLock ScopeLock(&Lock);
+
+	TArray<FString> ToolNamesToRemove;
+	for (const auto& Pair : ToolModuleNames)
+	{
+		if (Pair.Value.Equals(ModuleName, ESearchCase::IgnoreCase))
+		{
+			ToolNamesToRemove.Add(Pair.Key);
+		}
+	}
+
+	for (const FString& ToolName : ToolNamesToRemove)
+	{
+		if (TObjectPtr<UBridgeToolBase>* Instance = ToolInstances.Find(ToolName))
+		{
+			if (Instance->Get())
+			{
+				Instance->Get()->RemoveFromRoot();
+			}
+		}
+		ToolInstances.Remove(ToolName);
+		ToolClasses.Remove(ToolName);
+		ToolModuleNames.Remove(ToolName);
+	}
+
+	return ToolNamesToRemove.Num();
 }
 
 void FBridgeToolRegistry::ClearAllTools()
@@ -64,6 +100,7 @@ void FBridgeToolRegistry::ClearAllTools()
 	}
 	ToolInstances.Empty();
 	ToolClasses.Empty();
+	ToolModuleNames.Empty();
 }
 
 TArray<FBridgeToolDefinition> FBridgeToolRegistry::GetAllToolDefinitions() const

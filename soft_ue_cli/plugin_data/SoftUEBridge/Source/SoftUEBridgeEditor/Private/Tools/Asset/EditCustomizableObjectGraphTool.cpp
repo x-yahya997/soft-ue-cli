@@ -436,6 +436,177 @@ namespace
 		return Result;
 	}
 
+	static TSharedPtr<FJsonObject> BuildCreatedNodeSummary(const FString& Role, UEdGraphNode* Node)
+	{
+		TSharedPtr<FJsonObject> Summary = MakeShared<FJsonObject>();
+		Summary->SetStringField(TEXT("role"), Role);
+		if (!Node)
+		{
+			return Summary;
+		}
+		Summary->SetStringField(TEXT("node_guid"), Node->NodeGuid.ToString(EGuidFormats::DigitsWithHyphens));
+		Summary->SetStringField(TEXT("node_name"), Node->GetName());
+		Summary->SetStringField(TEXT("node_path"), Node->GetPathName());
+		if (Node->GetClass())
+		{
+			Summary->SetStringField(TEXT("node_class"), Node->GetClass()->GetName());
+		}
+		return Summary;
+	}
+
+	static TSharedPtr<FJsonObject> BuildCreatedEdgeSummary(
+		const FString& Role,
+		UEdGraphNode* SourceNode,
+		UEdGraphPin* SourcePin,
+		UEdGraphNode* TargetNode,
+		UEdGraphPin* TargetPin)
+	{
+		TSharedPtr<FJsonObject> Edge = MakeShared<FJsonObject>();
+		Edge->SetStringField(TEXT("role"), Role);
+		if (SourceNode)
+		{
+			Edge->SetStringField(TEXT("source_node"), SourceNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphens));
+		}
+		if (SourcePin)
+		{
+			Edge->SetStringField(TEXT("source_pin"), SourcePin->PinName.ToString());
+		}
+		if (TargetNode)
+		{
+			Edge->SetStringField(TEXT("target_node"), TargetNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphens));
+		}
+		if (TargetPin)
+		{
+			Edge->SetStringField(TEXT("target_pin"), TargetPin->PinName.ToString());
+		}
+		return Edge;
+	}
+
+	static UEdGraphNode* CreateCustomizableObjectGraphNode(
+		UObject* AssetObject,
+		UEdGraph* TargetGraph,
+		const FString& NodeClassName,
+		const FVector2D& Position,
+		const TSharedPtr<FJsonObject>& Properties,
+		TArray<FString>& OutPropertyWarnings,
+		FString& OutError)
+	{
+		if (!AssetObject || !TargetGraph)
+		{
+			OutError = TEXT("CustomizableObject graph is unavailable");
+			return nullptr;
+		}
+
+		FString ClassError;
+		UClass* NodeClass = ResolveNodeClass(NodeClassName, ClassError);
+		if (!NodeClass)
+		{
+			OutError = ClassError;
+			return nullptr;
+		}
+
+		FGraphNodeCreator<UEdGraphNode> NodeCreator(*TargetGraph);
+		UEdGraphNode* NewNode = NodeCreator.CreateUserInvokedNode(true, NodeClass);
+		if (!NewNode)
+		{
+			OutError = FString::Printf(TEXT("Failed to create node of class %s"), *NodeClass->GetName());
+			return nullptr;
+		}
+
+		NewNode->NodePosX = FMath::RoundToInt(Position.X);
+		NewNode->NodePosY = FMath::RoundToInt(Position.Y);
+		NodeCreator.Finalize();
+
+		OutPropertyWarnings = ApplyReflectedProperties(NewNode, Properties);
+		RefreshCustomizableObjectNodePins(NewNode);
+		NewNode->ReconstructNode();
+		return NewNode;
+	}
+
+	static FString DescribePins(UEdGraphNode* Node)
+	{
+		TArray<FString> PinNames;
+		if (Node)
+		{
+			for (UEdGraphPin* Pin : Node->Pins)
+			{
+				if (Pin)
+				{
+					PinNames.Add(Pin->PinName.ToString());
+				}
+			}
+		}
+		PinNames.Sort();
+		return FString::Join(PinNames, TEXT(", "));
+	}
+
+	static UEdGraphPin* FindPinFromCandidates(UEdGraphNode* Node, const TArray<FString>& CandidateNames)
+	{
+		for (const FString& CandidateName : CandidateNames)
+		{
+			if (UEdGraphPin* Pin = FindPin(Node, CandidateName))
+			{
+				return Pin;
+			}
+		}
+		return nullptr;
+	}
+
+	static bool ConnectCustomizableObjectPinsOrError(
+		UEdGraph* Graph,
+		UEdGraphNode* SourceNode,
+		const TArray<FString>& SourcePinCandidates,
+		UEdGraphNode* TargetNode,
+		const TArray<FString>& TargetPinCandidates,
+		const FString& EdgeRole,
+		TArray<TSharedPtr<FJsonValue>>& OutCreatedEdges,
+		FString& OutError)
+	{
+		UEdGraphPin* SourcePin = FindPinFromCandidates(SourceNode, SourcePinCandidates);
+		UEdGraphPin* TargetPin = FindPinFromCandidates(TargetNode, TargetPinCandidates);
+		if (!SourcePin)
+		{
+			OutError = FString::Printf(
+				TEXT("Source pin not found for %s. Tried [%s]. Available pins: %s"),
+				*EdgeRole,
+				*FString::Join(SourcePinCandidates, TEXT(", ")),
+				*DescribePins(SourceNode));
+			return false;
+		}
+		if (!TargetPin)
+		{
+			OutError = FString::Printf(
+				TEXT("Target pin not found for %s. Tried [%s]. Available pins: %s"),
+				*EdgeRole,
+				*FString::Join(TargetPinCandidates, TEXT(", ")),
+				*DescribePins(TargetNode));
+			return false;
+		}
+
+		const UEdGraphSchema* Schema = Graph ? Graph->GetSchema() : nullptr;
+		if (!Schema)
+		{
+			OutError = TEXT("CustomizableObject graph has no schema");
+			return false;
+		}
+
+		const FPinConnectionResponse Response = Schema->CanCreateConnection(SourcePin, TargetPin);
+		if (Response.Response == CONNECT_RESPONSE_DISALLOW)
+		{
+			OutError = FString::Printf(TEXT("Cannot connect %s: %s"), *EdgeRole, *Response.Message.ToString());
+			return false;
+		}
+		if (!Schema->TryCreateConnection(SourcePin, TargetPin))
+		{
+			OutError = FString::Printf(TEXT("Failed to connect %s"), *EdgeRole);
+			return false;
+		}
+
+		OutCreatedEdges.Add(MakeShared<FJsonValueObject>(
+			BuildCreatedEdgeSummary(EdgeRole, SourceNode, SourcePin, TargetNode, TargetPin)));
+		return true;
+	}
+
 	static FProperty* FindReturnProperty(UFunction* Function)
 	{
 		if (!Function)
@@ -1419,5 +1590,399 @@ FBridgeToolResult URemoveCustomizableObjectNodeTool::Execute(
 	Result->SetStringField(TEXT("removed_node_class"), RemovedNodeClass);
 	Result->SetBoolField(TEXT("needs_compile"), true);
 	Result->SetBoolField(TEXT("needs_save"), true);
+	return FBridgeToolResult::Json(Result);
+}
+
+FString UWireCustomizableObjectSlotFromTableTool::GetToolDescription() const
+{
+	return TEXT("Create and wire a NodeTable -> Material -> ComponentMesh slot chain in a Mutable/CustomizableObject graph.");
+}
+
+TMap<FString, FBridgeSchemaProperty> UWireCustomizableObjectSlotFromTableTool::GetInputSchema() const
+{
+	TMap<FString, FBridgeSchemaProperty> Schema = CommonCustomizableObjectAssetSchema();
+
+	for (const TCHAR* Name : {
+		TEXT("parameter_name"),
+		TEXT("data_table_path"),
+		TEXT("filter_column"),
+		TEXT("material_asset"),
+		TEXT("component_mesh_node"),
+	})
+	{
+		FBridgeSchemaProperty Prop;
+		Prop.Type = TEXT("string");
+		Prop.bRequired = true;
+		Schema.Add(Name, Prop);
+	}
+
+	Schema.FindChecked(TEXT("parameter_name")).Description = TEXT("NodeTable ParameterName and slot identifier");
+	Schema.FindChecked(TEXT("data_table_path")).Description = TEXT("DataTable asset path to assign to the NodeTable");
+	Schema.FindChecked(TEXT("filter_column")).Description = TEXT("DataTable column used by the NodeTable filter");
+	Schema.FindChecked(TEXT("material_asset")).Description = TEXT("UMaterialInterface asset path for the material constant node");
+	Schema.FindChecked(TEXT("component_mesh_node")).Description = TEXT("Existing ComponentMesh node GUID, object path, object name, or title");
+
+	FBridgeSchemaProperty FilterValues;
+	FilterValues.Type = TEXT("array");
+	FilterValues.Description = TEXT("Filter values to assign to the NodeTable Filters array");
+	FilterValues.bRequired = true;
+	FilterValues.ItemsType = TEXT("string");
+	Schema.Add(TEXT("filter_values"), FilterValues);
+
+	FBridgeSchemaProperty FilterValue;
+	FilterValue.Type = TEXT("string");
+	FilterValue.Description = TEXT("Single filter value alias for filter_values");
+	Schema.Add(TEXT("filter_value"), FilterValue);
+
+	FBridgeSchemaProperty FilterOperation;
+	FilterOperation.Type = TEXT("string");
+	FilterOperation.Description = TEXT("Filter operation for multiple values: OR or AND (default: OR)");
+	FilterOperation.Enum.Add(TEXT("OR"));
+	FilterOperation.Enum.Add(TEXT("AND"));
+	Schema.Add(TEXT("filter_operation"), FilterOperation);
+
+	FBridgeSchemaProperty LodIndex;
+	LodIndex.Type = TEXT("integer");
+	LodIndex.Description = TEXT("LOD index to wire (default: 0)");
+	Schema.Add(TEXT("lod_index"), LodIndex);
+
+	FBridgeSchemaProperty MaterialIndex;
+	MaterialIndex.Type = TEXT("integer");
+	MaterialIndex.Description = TEXT("Material slot index used in the NodeTable output pin name (default: 0)");
+	Schema.Add(TEXT("material_index"), MaterialIndex);
+
+	FBridgeSchemaProperty NodePosition;
+	NodePosition.Type = TEXT("array");
+	NodePosition.Description = TEXT("Optional [X, Y] position for the NodeTable; related nodes are offset from this position");
+	NodePosition.ItemsType = TEXT("integer");
+	Schema.Add(TEXT("node_position"), NodePosition);
+
+	FBridgeSchemaProperty AddNoneOption;
+	AddNoneOption.Type = TEXT("boolean");
+	AddNoneOption.Description = TEXT("Set bAddNoneOption on the NodeTable (default: false)");
+	Schema.Add(TEXT("add_none_option"), AddNoneOption);
+
+	return Schema;
+}
+
+TArray<FString> UWireCustomizableObjectSlotFromTableTool::GetRequiredParams() const
+{
+	return {
+		TEXT("asset_path"),
+		TEXT("parameter_name"),
+		TEXT("data_table_path"),
+		TEXT("filter_column"),
+		TEXT("filter_values"),
+		TEXT("material_asset"),
+		TEXT("component_mesh_node"),
+	};
+}
+
+FBridgeToolResult UWireCustomizableObjectSlotFromTableTool::Execute(
+	const TSharedPtr<FJsonObject>& Arguments,
+	const FBridgeToolContext& Context)
+{
+	const FString AssetPath = GetStringArgOrDefault(Arguments, TEXT("asset_path"));
+	const FString ParameterName = GetStringArgOrDefault(Arguments, TEXT("parameter_name"));
+	const FString DataTablePath = GetStringArgOrDefault(Arguments, TEXT("data_table_path"));
+	const FString FilterColumn = GetStringArgOrDefault(Arguments, TEXT("filter_column"));
+	const FString MaterialAsset = GetStringArgOrDefault(Arguments, TEXT("material_asset"));
+	const FString ComponentMeshNodeRef = GetStringArgOrDefault(Arguments, TEXT("component_mesh_node"));
+	FString FilterOperation = GetStringArgOrDefault(Arguments, TEXT("filter_operation"), TEXT("OR"));
+	FilterOperation.ToUpperInline();
+	const int32 LodIndex = GetIntArgOrDefault(Arguments, TEXT("lod_index"), 0);
+	const int32 MaterialIndex = GetIntArgOrDefault(Arguments, TEXT("material_index"), 0);
+	const bool bAddNoneOption = GetBoolArgOrDefault(Arguments, TEXT("add_none_option"), false);
+
+	TArray<FString> FilterValues;
+	const TArray<TSharedPtr<FJsonValue>>* FilterValuesArray = nullptr;
+	if (Arguments->TryGetArrayField(TEXT("filter_values"), FilterValuesArray) && FilterValuesArray)
+	{
+		for (const TSharedPtr<FJsonValue>& Value : *FilterValuesArray)
+		{
+			FString FilterValueString;
+			if (Value.IsValid() && Value->TryGetString(FilterValueString) && !FilterValueString.IsEmpty())
+			{
+				FilterValues.Add(FilterValueString);
+			}
+		}
+	}
+	FString SingleFilterValue;
+	if (Arguments->TryGetStringField(TEXT("filter_value"), SingleFilterValue) && !SingleFilterValue.IsEmpty())
+	{
+		FilterValues.Add(SingleFilterValue);
+	}
+
+	if (AssetPath.IsEmpty() || ParameterName.IsEmpty() || DataTablePath.IsEmpty() ||
+		FilterColumn.IsEmpty() || FilterValues.Num() == 0 || MaterialAsset.IsEmpty() ||
+		ComponentMeshNodeRef.IsEmpty())
+	{
+		return FBridgeToolResult::Error(TEXT("asset_path, parameter_name, data_table_path, filter_column, filter_values, material_asset, and component_mesh_node are required"));
+	}
+	if (FilterOperation != TEXT("OR") && FilterOperation != TEXT("AND"))
+	{
+		return FBridgeToolResult::Error(TEXT("filter_operation must be OR or AND"));
+	}
+	if (LodIndex < 0 || MaterialIndex < 0)
+	{
+		return FBridgeToolResult::Error(TEXT("lod_index and material_index must be non-negative"));
+	}
+
+	FVector2D BasePosition(0.0, 0.0);
+	const TArray<TSharedPtr<FJsonValue>>* PositionArray = nullptr;
+	if (Arguments->TryGetArrayField(TEXT("node_position"), PositionArray) && PositionArray && PositionArray->Num() >= 2)
+	{
+		BasePosition.X = (*PositionArray)[0]->AsNumber();
+		BasePosition.Y = (*PositionArray)[1]->AsNumber();
+	}
+
+	FString LoadError;
+	UObject* AssetObject = FBridgeAssetModifier::LoadAssetByPath(AssetPath, LoadError);
+	if (!AssetObject)
+	{
+		return FBridgeToolResult::Error(LoadError);
+	}
+	if (!LooksLikeCustomizableObject(AssetObject))
+	{
+		return FBridgeToolResult::Error(TEXT("Asset does not appear to be a Mutable/CustomizableObject asset."));
+	}
+
+	UEdGraph* TargetGraph = ResolveGraph(AssetObject, TEXT(""));
+	if (!TargetGraph)
+	{
+		return FBridgeToolResult::Error(TEXT("No graph found on CustomizableObject asset"));
+	}
+
+	UEdGraph* ComponentGraph = nullptr;
+	UEdGraphNode* ComponentMeshNode = FindNode(AssetObject, ComponentMeshNodeRef, &ComponentGraph);
+	if (!ComponentMeshNode)
+	{
+		return FBridgeToolResult::Error(FString::Printf(TEXT("ComponentMesh node not found: %s"), *ComponentMeshNodeRef));
+	}
+	if (ComponentGraph != TargetGraph)
+	{
+		return FBridgeToolResult::Error(TEXT("ComponentMesh node must be in the same CustomizableObject graph as the new slot chain"));
+	}
+
+	TSharedPtr<FScopedTransaction> Transaction = FBridgeAssetModifier::BeginTransaction(
+		FText::Format(NSLOCTEXT("SoftUEBridge", "WireCustomizableObjectSlotFromTable", "Wire CustomizableObject slot {0}"),
+			FText::FromString(ParameterName)));
+
+	FBridgeAssetModifier::MarkModified(AssetObject);
+	FBridgeAssetModifier::MarkModified(TargetGraph);
+	FBridgeAssetModifier::MarkModified(ComponentMeshNode);
+
+	TArray<UEdGraphNode*> CreatedNodes;
+	auto FailAfterCreation = [&](const FString& Message) -> FBridgeToolResult
+	{
+		for (UEdGraphNode* CreatedNode : CreatedNodes)
+		{
+			if (CreatedNode && CreatedNode->GetGraph())
+			{
+				FBridgeAssetModifier::MarkModified(CreatedNode);
+				CreatedNode->BreakAllNodeLinks();
+				CreatedNode->GetGraph()->RemoveNode(CreatedNode);
+			}
+		}
+		TargetGraph->NotifyGraphChanged();
+		FBridgeAssetModifier::MarkPackageDirty(AssetObject);
+		return FBridgeToolResult::Error(Message);
+	};
+
+	TArray<TSharedPtr<FJsonValue>> FilterJsonValues;
+	for (const FString& FilterValue : FilterValues)
+	{
+		FilterJsonValues.Add(MakeShared<FJsonValueString>(FilterValue));
+	}
+
+	TSharedPtr<FJsonObject> TableProperties = MakeShared<FJsonObject>();
+	TableProperties->SetStringField(TEXT("Table"), DataTablePath);
+	TableProperties->SetStringField(TEXT("ParameterName"), ParameterName);
+	TableProperties->SetBoolField(TEXT("bAddNoneOption"), bAddNoneOption);
+
+	TSharedPtr<FJsonObject> CompilationFilterOption = MakeShared<FJsonObject>();
+	CompilationFilterOption->SetStringField(TEXT("FilterColumn"), FilterColumn);
+	CompilationFilterOption->SetArrayField(TEXT("Filters"), FilterJsonValues);
+	CompilationFilterOption->SetStringField(
+		TEXT("OperationType"),
+		FilterOperation == TEXT("AND") ? TEXT("TCFOT_AND") : TEXT("TCFOT_OR"));
+	TArray<TSharedPtr<FJsonValue>> CompilationFilterOptions;
+	CompilationFilterOptions.Add(MakeShared<FJsonValueObject>(CompilationFilterOption));
+	TableProperties->SetArrayField(TEXT("CompilationFilterOptions"), CompilationFilterOptions);
+
+	TArray<FString> TablePropertyWarnings;
+	FString CreateError;
+	UEdGraphNode* TableNode = CreateCustomizableObjectGraphNode(
+		AssetObject,
+		TargetGraph,
+		TEXT("CustomizableObjectNodeTable"),
+		BasePosition,
+		TableProperties,
+		TablePropertyWarnings,
+		CreateError);
+	if (!TableNode)
+	{
+		return FBridgeToolResult::Error(CreateError);
+	}
+	CreatedNodes.Add(TableNode);
+	if (TablePropertyWarnings.Num() > 0)
+	{
+		return FailAfterCreation(FString::Printf(
+			TEXT("Failed to configure NodeTable: %s"),
+			*FString::Join(TablePropertyWarnings, TEXT("; "))));
+	}
+
+	TArray<FString> MaterialPropertyWarnings;
+	UEdGraphNode* MaterialNode = CreateCustomizableObjectGraphNode(
+		AssetObject,
+		TargetGraph,
+		TEXT("CustomizableObjectNodeMaterial"),
+		FVector2D(BasePosition.X + 360.0, BasePosition.Y),
+		MakeShared<FJsonObject>(),
+		MaterialPropertyWarnings,
+		CreateError);
+	if (!MaterialNode)
+	{
+		return FailAfterCreation(CreateError);
+	}
+	CreatedNodes.Add(MaterialNode);
+
+	TSharedPtr<FJsonObject> MaterialConstantProperties = MakeShared<FJsonObject>();
+	MaterialConstantProperties->SetStringField(TEXT("Material"), MaterialAsset);
+
+	TArray<FString> MaterialConstantPropertyWarnings;
+	UEdGraphNode* MaterialConstantNode = nullptr;
+	for (const TCHAR* MaterialConstantClass : {TEXT("CONodeMaterialConstant"), TEXT("CustomizableObjectNodeMaterialConstant")})
+	{
+		CreateError.Empty();
+		MaterialConstantNode = CreateCustomizableObjectGraphNode(
+			AssetObject,
+			TargetGraph,
+			MaterialConstantClass,
+			FVector2D(BasePosition.X + 360.0, BasePosition.Y + 220.0),
+			MaterialConstantProperties,
+			MaterialConstantPropertyWarnings,
+			CreateError);
+		if (MaterialConstantNode)
+		{
+			break;
+		}
+	}
+	FString MaterialAssignmentMode;
+	if (MaterialConstantNode)
+	{
+		CreatedNodes.Add(MaterialConstantNode);
+		if (MaterialConstantPropertyWarnings.Num() > 0)
+		{
+			return FailAfterCreation(FString::Printf(
+				TEXT("Failed to configure Material Constant node: %s"),
+				*FString::Join(MaterialConstantPropertyWarnings, TEXT("; "))));
+		}
+		MaterialAssignmentMode = TEXT("material_constant_node");
+	}
+	else
+	{
+		MaterialAssignmentMode = TEXT("material_node_property");
+		TSharedPtr<FJsonObject> MaterialNodeProperties = MakeShared<FJsonObject>();
+		MaterialNodeProperties->SetStringField(TEXT("Material"), MaterialAsset);
+		TArray<FString> MaterialAssignmentPropertyWarnings = ApplyReflectedProperties(MaterialNode, MaterialNodeProperties);
+		if (MaterialAssignmentPropertyWarnings.Num() > 0)
+		{
+			return FailAfterCreation(FString::Printf(
+				TEXT("Failed to assign material on Material node: %s"),
+				*FString::Join(MaterialAssignmentPropertyWarnings, TEXT("; "))));
+		}
+		MaterialPropertyWarnings.Append(MaterialAssignmentPropertyWarnings);
+		RefreshCustomizableObjectNodePins(MaterialNode);
+		MaterialNode->ReconstructNode();
+	}
+
+	RefreshCustomizableObjectNodePins(TableNode);
+	RefreshCustomizableObjectNodePins(MaterialNode);
+	if (MaterialConstantNode)
+	{
+		RefreshCustomizableObjectNodePins(MaterialConstantNode);
+	}
+	RefreshCustomizableObjectNodePins(ComponentMeshNode);
+
+	TArray<TSharedPtr<FJsonValue>> CreatedEdges;
+	FString ConnectError;
+	if (!ConnectCustomizableObjectPinsOrError(
+		TargetGraph,
+		TableNode,
+		{FString::Printf(TEXT("Mesh LOD_%d Mat_%d"), LodIndex, MaterialIndex)},
+		MaterialNode,
+		{TEXT("Mesh_Input_Pin"), TEXT("Mesh")},
+		TEXT("table_mesh_to_material"),
+		CreatedEdges,
+		ConnectError))
+	{
+		return FailAfterCreation(ConnectError);
+	}
+
+	if (MaterialConstantNode && !ConnectCustomizableObjectPinsOrError(
+		TargetGraph,
+		MaterialConstantNode,
+		{TEXT("Material")},
+		MaterialNode,
+		{TEXT("Material_Input_Pin"), TEXT("Material")},
+		TEXT("material_constant_to_material"),
+		CreatedEdges,
+		ConnectError))
+	{
+		return FailAfterCreation(ConnectError);
+	}
+
+	if (!ConnectCustomizableObjectPinsOrError(
+		TargetGraph,
+		MaterialNode,
+		{TEXT("Mesh Section_Output_Pin"), TEXT("Mesh Section"), TEXT("MeshSection")},
+		ComponentMeshNode,
+		{FString::Printf(TEXT("LOD %d"), LodIndex), FString::Printf(TEXT("LOD_%d"), LodIndex)},
+		TEXT("material_to_component_mesh"),
+		CreatedEdges,
+		ConnectError))
+	{
+		return FailAfterCreation(ConnectError);
+	}
+
+	TargetGraph->NotifyGraphChanged();
+	FBridgeAssetModifier::MarkPackageDirty(AssetObject);
+
+	TArray<TSharedPtr<FJsonValue>> CreatedNodeValues;
+	CreatedNodeValues.Add(MakeShared<FJsonValueObject>(BuildCreatedNodeSummary(TEXT("node_table"), TableNode)));
+	CreatedNodeValues.Add(MakeShared<FJsonValueObject>(BuildCreatedNodeSummary(TEXT("material"), MaterialNode)));
+	if (MaterialConstantNode)
+	{
+		CreatedNodeValues.Add(MakeShared<FJsonValueObject>(BuildCreatedNodeSummary(TEXT("material_constant"), MaterialConstantNode)));
+	}
+
+	TArray<FString> PropertyWarnings;
+	PropertyWarnings.Append(TablePropertyWarnings);
+	PropertyWarnings.Append(MaterialPropertyWarnings);
+	PropertyWarnings.Append(MaterialConstantPropertyWarnings);
+
+	TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
+	Result->SetBoolField(TEXT("success"), true);
+	Result->SetStringField(TEXT("asset"), AssetPath);
+	Result->SetStringField(TEXT("graph"), TargetGraph->GetName());
+	Result->SetStringField(TEXT("graph_path"), TargetGraph->GetPathName());
+	Result->SetStringField(TEXT("parameter_name"), ParameterName);
+	Result->SetStringField(TEXT("data_table_path"), DataTablePath);
+	Result->SetStringField(TEXT("filter_column"), FilterColumn);
+	Result->SetArrayField(TEXT("filter_values"), FilterJsonValues);
+	Result->SetStringField(TEXT("filter_operation"), FilterOperation);
+	Result->SetStringField(TEXT("material_assignment_mode"), MaterialAssignmentMode);
+	Result->SetStringField(TEXT("component_mesh_node"), ComponentMeshNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphens));
+	Result->SetNumberField(TEXT("lod_index"), LodIndex);
+	Result->SetNumberField(TEXT("material_index"), MaterialIndex);
+	Result->SetArrayField(TEXT("created_nodes"), CreatedNodeValues);
+	Result->SetArrayField(TEXT("created_edges"), CreatedEdges);
+	Result->SetBoolField(TEXT("needs_compile"), true);
+	Result->SetBoolField(TEXT("needs_save"), true);
+	if (PropertyWarnings.Num() > 0)
+	{
+		Result->SetStringField(TEXT("property_warnings"), FString::Join(PropertyWarnings, TEXT("; ")));
+	}
 	return FBridgeToolResult::Json(Result);
 }
