@@ -8,6 +8,10 @@
 #include "Tools/CallFunctionTool.h"
 #include "Tools/GetLogsTool.h"
 #include "Tools/ConsoleVarTool.h"
+#include "Tools/CaptureViewportTool.h"
+#include "Tools/GetConfigValueTool.h"
+#include "Tools/SetConfigValueTool.h"
+#include "Tools/ValidateConfigKeyTool.h"
 #include "Tools/SpawnActorTool.h"
 #include "Tools/SetPropertyTool.h"
 #include "Tools/GetPropertyTool.h"
@@ -28,6 +32,10 @@ void FSoftUEBridgeModule::StartupModule()
 	Registry.RegisterToolClass<UGetLogsTool>();
 	Registry.RegisterToolClass<UGetConsoleVarTool>();
 	Registry.RegisterToolClass<USetConsoleVarTool>();
+	Registry.RegisterToolClass<UCaptureViewportTool>();
+	Registry.RegisterToolClass<UGetConfigValueTool>();
+	Registry.RegisterToolClass<USetConfigValueTool>();
+	Registry.RegisterToolClass<UValidateConfigKeyTool>();
 	Registry.RegisterToolClass<USpawnActorTool>();
 	Registry.RegisterToolClass<USetPropertyTool>();
 	Registry.RegisterToolClass<UGetPropertyTool>();

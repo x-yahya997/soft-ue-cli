@@ -8,9 +8,6 @@
 #include "Engine/StaticMeshActor.h"
 #include "Camera/CameraActor.h"
 
-#if !WITH_EDITOR
-REGISTER_BRIDGE_TOOL(USpawnActorTool)
-#endif
 
 FString USpawnActorTool::GetToolDescription() const
 {

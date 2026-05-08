@@ -9,9 +9,6 @@
 #include "EngineUtils.h"
 #include "UObject/UnrealType.h"
 
-#if !WITH_EDITOR
-REGISTER_BRIDGE_TOOL(UGetPropertyTool)
-#endif
 
 FString UGetPropertyTool::GetToolDescription() const
 {

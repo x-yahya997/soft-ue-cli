@@ -115,9 +115,6 @@ FString FBridgeLogCapture::GetLatestTimestamp() const
 
 // ── UGetLogsTool ──────────────────────────────────────────────────────────────
 
-#if !WITH_EDITOR
-REGISTER_BRIDGE_TOOL(UGetLogsTool)
-#endif
 
 FString UGetLogsTool::GetToolDescription() const
 {

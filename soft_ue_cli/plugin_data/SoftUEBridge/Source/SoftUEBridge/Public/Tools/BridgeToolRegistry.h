@@ -49,12 +49,11 @@ private:
 	static FBridgeToolRegistry* Instance;
 };
 
-/** Auto-registration macro -- include BridgeToolRegistry.h in your .cpp to use this */
-#define REGISTER_BRIDGE_TOOL(ToolClass) \
-	static struct F##ToolClass##Registrar \
-	{ \
-		F##ToolClass##Registrar() \
-		{ \
-			FBridgeToolRegistry::Get().RegisterToolClass(ToolClass::StaticClass()); \
-		} \
-	} G##ToolClass##Registrar;
+/**
+ * Auto-registration macro (deprecated).
+ *
+ * Static initialization order can call into UObject code before the engine is ready,
+ * causing invalid UClass pointers and access violations on startup. Register tools
+ * explicitly from your module's StartupModule() instead.
+ */
+#define REGISTER_BRIDGE_TOOL(ToolClass)
